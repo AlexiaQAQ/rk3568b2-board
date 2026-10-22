@@ -97,20 +97,47 @@ cd ../device/rockchip        && git apply ../../patch/0002-*.patch
 
 ### 3. 编译
 
-> ⚠️ **SDK 必须放在纯 ASCII 路径下**（例如 `/home/user/rk3568-sdk`）。
-> 路径含中文时，buildroot 内部的 `LC_ALL=C` 会让 Perl 把路径解析成 `??????`，
-> 报 `makeinfo: could not create directory ...`。
-
+推荐用仓库根目录的 `Makefile`，它会自动处理依赖 PATH、SDK 路径检查和板级文件安装：
 
 ```bash
-cd extracted_sdk
-./build.sh lunch:rockchip_rk3568_myboard_v10_defconfig
-./build.sh kernel     # 先单独编内核，最快暴露 DTS/config 问题
-./build.sh uboot
-./build.sh all        # 编 rootfs 并打包 update.img
+cd board-port
+make deps          # 检查主机依赖
+make image         # 全量编译 + 打包 update.img
 ```
 
-产物在 `rockdev/`，`update.img` 为整包。
+常用目标：
+
+| 命令 | 作用 | 耗时 |
+|---|---|---|
+| `make deps` | 检查依赖，缺什么直接列出来 | 秒 |
+| `make install` | 把 DTS / defconfig 装进 SDK | 秒 |
+| `make check` | 只编 dtb，验证设备树语法 | ~3 秒 |
+| `make kernel` | 编内核 | 1~2 分钟（增量） |
+| `make uboot` | 编 u-boot | ~1 分钟 |
+| `make buildroot` | 编根文件系统 | 首次 40 分钟 |
+| `make image` | 全量编译并生成 `update.img` | 首次约 1 小时 |
+| `make flash` | 用 `upgrade_tool` 烧录 | — |
+
+SDK 不在默认位置（`~/rk3568-sdk`）时：
+
+```bash
+make image SDK=/path/to/sdk
+```
+
+`make` 会做两项前置检查，避免浪费时间：
+
+1. **SDK 路径含非 ASCII 字符**直接报错 —— buildroot 的 `LC_ALL=C` 会让 Perl
+   把中文路径解析成 `??????`，否则要等 40 分钟才在 glibc 阶段失败。
+2. SDK 目录结构不对（缺 `kernel-6.1`）立即报错。
+
+#### 不用 Makefile 的手动方式
+
+```bash
+export PATH="$HOME/.local/opt/sdk-deps/bin:$PATH"
+cd "$SDK"
+./build.sh lunch:rockchip_rk3568_myboard_v10_defconfig   # 换配置时执行一次
+./build.sh kernel      # 或 uboot / buildroot / firmware / updateimg / all
+```
 
 ### 4. 烧录
 
