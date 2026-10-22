@@ -46,6 +46,22 @@
 		regulator-max-microvolt = <5000000>;
 	};
 
+	/*
+	 * M.2 插槽（NVMe SSD）3.3V：SY8113 从 VCC5V0_SYS 降压，
+	 * 使能脚 4G_PWREN_H_GPIO0_C6。必须常开，否则硬盘不上电。
+	 */
+	vcc3v3_m2: vcc3v3-m2 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v3_m2";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		gpio = <&gpio0 RK_PC6 GPIO_ACTIVE_HIGH>;
+		vin-supply = <&vcc5v0_sys>;
+	};
+
 	/* 本板无 VGA，EVB 的 VGA 电源会去抢 GPIO0_D5，禁用 */
 	vcc3v3_vga: vcc3v3-vga {
 		status = "disabled";
@@ -301,7 +317,23 @@
 	status = "disabled";
 };
 
-/* ==================== 外部接口：不用 PCIe / SATA ==================== */
+/* ==================== PCIe：M.2 插槽（NVMe SSD） ==================== */
+/*
+ * 原理图上 M.2 座只接了 PCIE20_* 一对 lane（PCIE20_TX/RX/REFCLK），
+ * 对应的是 RK3568 的 PCIe 2.1 x1 控制器 pcie2x1（专用引脚，不走 combphy）。
+ *
+ * 注意：
+ *   - PERST#/CLKREQ#/WAKE# 走 SoC 的专用 PCIE20_*_M1 引脚，经 22Ω 串阻直达座子，
+ *     不是 GPIO，所以不需要 reset-gpios
+ *   - 座子上的 USB3.1 差分对这版没有连接（打叉），只有 PCIe
+ *   - 供电靠 vcc3v3_m2（见上，GPIO0_C6 使能）
+ */
+&pcie2x1 {
+	num-lanes = <1>;
+	status = "okay";
+};
+
+/* 另外两路 PCIe 本板未使用 */
 &pcie3x2 {
 	status = "disabled";
 };

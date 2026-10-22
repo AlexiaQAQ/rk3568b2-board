@@ -31,7 +31,7 @@
 | 无线 | AP6212：WiFi = SDMMC1，BT = UART1（m0 + 硬件流控） |
 | 显示 | HDMI |
 | 音频 | RK809 内置 codec（耳机 + MIC） |
-| 扩展 | mini-PCIe / M.2 4G 模块座（PCIe x1 + USB3） |
+| 扩展 | M.2 插槽（PCIe 2.1 x1，NVMe SSD） |
 | USB | USB2.0 Type-C OTG + USB3.0 Host |
 | 调试 | UART2 @ 1500000 |
 
@@ -105,7 +105,7 @@ grep -rl myboard . | xargs sed -i 's/myboard/taishan/g'
 软件侧已验证到"能编译"为止，以下是**上板前需要人工确认**的项：
 
 - [ ] **DDR 的 VDDQ 电压**（LPDDR4X 应为 0.6V，图中 0.6V buck 标 NC，见 hardware.md 2.5）
-- [ ] eMMC / 4G 模块座是否使用
+- [ ] eMMC 未贴片（预留）；M.2 插槽待实测
 - [ ] **RTL8211F** 的 PHY 地址（PHYAD strap）与复位脚 GPIO2_PD3
 - [ ] **u-boot 仍使用 EVB 设备树**（`rk3568-evb`），必要时需单独建一份
 - [ ] **分区表**沿用 EVB 的 `parameter-buildroot-fit.txt`，偏移未按本板存储调整

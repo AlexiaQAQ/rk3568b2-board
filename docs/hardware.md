@@ -17,7 +17,7 @@
 | 显示 | HDMI | 无 MIPI-DSI / eDP / LVDS |
 | 音频 | RK809 内置 codec | 3.5mm 耳机座 + MIC 电路 |
 | USB | USB2.0 Type-C OTG + USB3.0 Host | OTG 口只走 D+/D-，无 SS 对 |
-| 扩展 | mini-PCIe / M.2 4G 模块座 | 复用以太网之外的 PCIe x1 + USB；`4G_PWREN` = GPIO0_C6 |
+| 扩展 | M.2 插槽（PCIe x1） | 主用途 NVMe SSD；PCIe 2.1 x1（`pcie2x1`），3.3V 由 GPIO0_C6 使能 |
 | 调试 | UART2 (m0) | 1500000 8N1 |
 
 ## 2. 供电结构
@@ -26,9 +26,12 @@
 
 ```
 DC 座 / USB VBUS (5V) ──> TPS54540DDAR ──> VCC5V0_SYS ──> SY8113 ──> VCC3V3_SYS
-                                  │
+                                  │                 └──> SY8113(U31) ──> VCC3V3_M2 (M.2 插槽)
                                   └──> VCC5V0_USB ──> (SY6280) ──> VCC5V0_USB_OTG0 / HOST1
 ```
+
+M.2 插槽的 3.3V（`VCC3V3_M2`）由 `4G_PWREN_H_GPIO0_C6` 控制，
+设备树里做成了 `always-on` 的固定稳压器，否则硬盘不上电。
 
 **注意**：EVB 用的是 12V（`dc_12v`）输入，本板是 **VBUS 5V**。
 设备树里已用自定义的 `vbus` 固定 5V 稳压器替换 `dc_12v` 作为 `vcc3v3_sys` / `vcc5v0_sys` 的上游。
@@ -151,13 +154,13 @@ VCCIO4 是 1.8V 这点同时决定 SDIO 的信号电平，因此 WiFi 可直接�
 | 音频 | RK809 codec | HP_OUT_L/R、MIC |
 | USB2 OTG | Type-C | 仅 D+/D-，CC 用 5.1K 下拉 |
 | USB3 Host | Type-A | USB3_HOST1 |
-| 4G 模块 | mini-PCIe/M.2 | PCIe x1 + USB3 + UIM，电源由 SY8113 供 VCC3V3_M2 |
+| M.2 插槽 | **pcie2x1** | 1 lane（`PCIE20_TX/RX/REFCLK`），专供 NVMe SSD；座上的 USB3.1 对未连接 |
 
 未使用：MIPI-DSI、eDP、LVDS、摄像头（CSI）、CAN、SPI NOR/NAND。
 
 ## 6. 待确认硬件项
 
 - [ ] **DDR VDDQ 到底 0.6V 还是 1.1V**（见 2.5，优先级最高）
-- [ ] eMMC 是否贴片；若贴了，是否要作为启动介质
-- [ ] 4G 模块座是否使用（用了就要开 `pcie3x2` + `4G_PWREN` GPIO0_C6）
+- [ ] eMMC（U5）当前未贴片，未来可能贴；届时需打开 `sdhci`
+- [ ] M.2 插槽实测（`lspci` 能否枚举到 NVMe；PERST# 由专用引脚自动输出，无需 GPIO）
 - [ ] RTL8211F 的 PHYAD strap 与复位脚确认

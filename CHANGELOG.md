@@ -3,6 +3,25 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.1.2] - 2026-10-22
+
+确认 M.2 插槽用途为 NVMe SSD 后的板级补充。
+
+### 新增
+
+- 启用 `pcie2x1`（PCIe 2.1 x1，1 lane），对应 M.2 座的 `PCIE20_*`
+- 新增 `vcc3v3_m2` 固定稳压器：GPIO0_C6 使能、always-on，
+  否则 M.2 插槽的 3.3V 不会上电
+
+### 变更
+
+- `pcie3x2` / `pcie30phy` / `sata2` 保持关闭（本板未使用）
+- M.2 座的 USB3.1 差分对本版未连接，仅 PCIe 可用
+
+### 说明
+
+- `PCIE20_PERSTN_M1` 等为 SoC 专用引脚，非 GPIO，故 `pcie2x1` 不设 `reset-gpios`
+
 ## [0.1.1] - 2026-10-22
 
 根据原理图 `sch.pdf` 复核后的修正。

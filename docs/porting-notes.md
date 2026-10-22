@@ -184,13 +184,21 @@ cp arch/arm/dts/rk3568-evb.dts arch/arm/dts/rk3568-myboard.dts
 ### 7.2 与口头描述不一致的地方
 
 **a) 板上有 eMMC（U5）和 SPI Flash 位（U19）。**
-之前说"存储只有 SD 卡"。图上是 SD + eMMC + SPI NOR/NAND 三个位。
-当前设备树里 `sdhci` / `sfc` 仍是关闭的（按 SD 启动处理），若 eMMC 已贴片可再打开。
+之前说"存储只有 SD 卡"。图上是 SD + eMMC + SPI NOR/NAND 三个位，
+eMMC 当前**未贴片**，属于预留。设备树里 `sdhci` / `sfc` 保持关闭，
+将来贴片后打开 `sdhci` 即可。
 
-**b) 有一个 mini-PCIe / M.2 4G 模块座。**
-第 14 页：Quectel RM500Q 类模块，走 PCIe x1 + USB3 + UIM，
-电源 `VCC3V3_M2` 由 SY8113 产生，使能脚 `4G_PWREN_H_GPIO0_C6`。
-当前设备树把 `pcie3x2` / `pcie30phy` 关了 —— 不用 4G 没问题，要用就得开。
+**b) 有一个 M.2 插槽，主要用途是 NVMe SSD。**
+第 14 页：座子是 M.2（3.3V 在 70/72/74 脚），只接了 **一对 PCIe lane**
+（`PCIE20_TX/RX/REFCLK`）+ 一组 USB3.1（这一版打叉未接）+ UIM。
+所以对应的是 **`pcie2x1`**（PCIe 2.1 x1，专用引脚），不是 `pcie3x2`。
+
+`PCIE20_PERSTN_M1` / `CLKREQN_M1` / `WAKEN_M1` 是 SoC 的专用功能引脚，
+经 22Ω 串阻直达座子，**不是 GPIO**，所以 `pcie2x1` 里不需要 `reset-gpios`。
+
+供电 `VCC3V3_M2` 由 SY8113(U31) 从 VCC5V0_SYS 产生，使能脚
+`4G_PWREN_H_GPIO0_C6`；设备树里做成了 always-on 的 `vcc3v3_m2`。
+否则插上 SSD 也不会转 —— 这是很容易漏的一步。
 
 **c) 板载音频是有的。**
 第 10 页 RK809 CODEC 段有 HP_OUT_L/R、MIC；第 8 页有 3.5mm 耳机座和 MIC 电路。
@@ -216,5 +224,5 @@ LPDDR4X 的 VDDQ 规范是 **0.6V**，LPDDR4 才是 1.1V。
 - [ ] 补一份 u-boot 板级 dts
 - [ ] 按实际 SD 容量重算 `parameter-buildroot-fit.txt`
 - [ ] 若 eMMC 已贴片，打开 `sdhci` 并调整启动顺序
-- [ ] 若要上 4G 模块，打开 `pcie3x2` 并加 `4G_PWREN`(GPIO0_C6) 控制
+- [ ] M.2 插槽实测 NVMe 枚举（`lspci -nn`）
 - [ ] 硬件确认项见 [hardware.md](hardware.md) 第 6 节
