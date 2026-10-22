@@ -69,20 +69,21 @@ M.2 插槽的 3.3V（`VCC3V3_M2`）由 `4G_PWREN_H_GPIO0_C6` 控制，
 | 输出 | VDD_CPU，默认 0.9V，范围 712.5mV ~ 1390mV |
 | 驱动 | `drivers/regulator/fan53555.c`，compatible `tcs,tcs4525` |
 
-### 2.5 ⚠️ DDR 的 VDDQ 需要人工确认
+### 2.5 DDR 供电（已确认）
 
-LPDDR4X 需要三路：VDD1 = 1.8V、VDD2 = 1.1V、**VDDQ = 0.6V**。
+LPDDR4X 需要三路，本板全部正确：
 
-原理图上：
+| 轨 | 电压 | 来源 |
+|---|---|---|
+| VDD1 | 1.8V | `VCC1V8_DDR`（RK809 LDO8 `vcca1v8_pmu`，0Ω 短接） |
+| VDD2 | 1.1V | `VCC_DDR`（RK809 SW3，R44 47k / R45 120k） |
+| **VDDQ** | **0.6V** | `VCC0V6_DDR`（U4 SY8089AAAC 独立 buck） |
 
-- `VCC_DDR`（SW3）= 1.1V → VDD2 ✔
-- `VCC1V8_DDR`（LDO8）= 1.8V → VDD1 ✔
-- **`VCC0V6_DDR` = 0.6V 由 U4（SY8089AAAC）产生，但图中标注 `NC`（不贴）**，
-  且 `R64` 为 0Ω，看起来把 `VCC0V6_DDR` 并到了 `VCC_DDR`（1.1V），
-  旁边注释写的是「Default: LPDDR4=1.1V」。
+> 初看原理图时 U4 旁边标了 `NC`，曾误判为"未贴片、VDDQ 被短到 1.1V"。
+> 经设计者确认：**SY8089AAAC 正常输出 0.6V**，NC 标注是模板残留。
 
-如果颗粒确实是 **LPDDR4X**（VDDQ 0.6V），而实际给的是 1.1V，**属于超压，可能损坏颗粒**。
-这可能是贴片选项标注残留，也可能是真的按 LPDDR4 配置的 BOM —— **打样前必须确认**。
+因此 DDR 侧不需要任何软件特殊配置，用 rkbin 默认的
+`rk3568_ddr_1560MHz_v1.25.bin` 即可（该 bin 支持 LPDDR4/4X 自动检测）。
 
 ## 3. IO 电压域
 
@@ -160,7 +161,6 @@ VCCIO4 是 1.8V 这点同时决定 SDIO 的信号电平，因此 WiFi 可直接�
 
 ## 6. 待确认硬件项
 
-- [ ] **DDR VDDQ 到底 0.6V 还是 1.1V**（见 2.5，优先级最高）
 - [ ] eMMC（U5）当前未贴片，未来可能贴；届时需打开 `sdhci`
 - [ ] M.2 插槽实测（`lspci` 能否枚举到 NVMe；PERST# 由专用引脚自动输出，无需 GPIO）
 - [ ] RTL8211F 的 PHYAD strap 与复位脚确认

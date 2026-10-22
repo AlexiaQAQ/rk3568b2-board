@@ -208,19 +208,20 @@ eMMC 当前**未贴片**，属于预留。设备树里 `sdhci` / `sfc` 保持关
 第 11 页：DC 座/USB → SMBJ33A → **TPS54540DDAR** → `VCC5V0_SYS` → SY8113 → `VCC3V3_SYS`。
 EVB 的 `dc_12v` 在本板根本不存在，设备树里已用自定义 `vbus` 5V 稳压器替代。
 
-### 7.3 新发现的风险：LPDDR4X 的 VDDQ
+### 7.3 DDR 的 VDDQ（曾经的误判，已澄清）
 
-第 11 页 `VCC_LPDDR4_VCC` 段：U4（SY8089AAAC）用于产生 `VCC0V6_DDR`，
-但**图中标注 NC（不贴）**，同时 `R64 = 0Ω`，注释写「Default: LPDDR4=1.1V」。
+第 11 页 `VCC_LPDDR4_VCC` 段：U4（SY8089AAAC）产生 `VCC0V6_DDR`，
+但图上标了 `NC`，同时 `R64 = 0Ω`，注释写「Default: LPDDR4=1.1V」，
+当时据此判断"VDDQ 可能被短到 1.1V、对 LPDDR4X 属超压"。
 
-LPDDR4X 的 VDDQ 规范是 **0.6V**，LPDDR4 才是 1.1V。
-颗粒 `RS1G32LO4D2BDS-53BT` 是 LPDDR4X。
-若真的把 1.1V 加到 VDDQ 上属于超压。**需要确认 BOM / 贴片选项**，
-不能靠软件规避（软件只能改 SW3 的输出，改不了这颗外部 buck）。
+**经设计者确认：U4 正常贴片并输出 0.6V**，`NC` 是模板残留标注。
+LPDDR4X 的三路供电（1.8/1.1/0.6V）都正确，DDR 侧无需软件干预。
+
+教训：原理图上的 `NC` / `Default:` 注释可能是从参考设计抄来的残留，
+涉及电源的关键判断应当直接问设计者或查 BOM，不要只看图注。
 
 ## 8. 后续
 
-- [ ] 确认 DDR VDDQ 电压（见 7.3，最高优先级）
 - [ ] 补一份 u-boot 板级 dts
 - [ ] 按实际 SD 容量重算 `parameter-buildroot-fit.txt`
 - [ ] 若 eMMC 已贴片，打开 `sdhci` 并调整启动顺序

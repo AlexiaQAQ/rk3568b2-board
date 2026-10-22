@@ -104,7 +104,6 @@ grep -rl myboard . | xargs sed -i 's/myboard/taishan/g'
 
 软件侧已验证到"能编译"为止，以下是**上板前需要人工确认**的项：
 
-- [ ] **DDR 的 VDDQ 电压**（LPDDR4X 应为 0.6V，图中 0.6V buck 标 NC，见 hardware.md 2.5）
 - [ ] eMMC 未贴片（预留）；M.2 插槽待实测
 - [ ] **RTL8211F** 的 PHY 地址（PHYAD strap）与复位脚 GPIO2_PD3
 - [ ] **u-boot 仍使用 EVB 设备树**（`rk3568-evb`），必要时需单独建一份
