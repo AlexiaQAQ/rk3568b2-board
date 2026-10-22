@@ -165,9 +165,56 @@ cp arch/arm/dts/rk3568-evb.dts arch/arm/dts/rk3568-myboard.dts
 6. `hciconfig -a` 验证 BT；若无反应，先把 `BT,reset_gpio` 的极性从
    `GPIO_ACTIVE_HIGH` 改为 `GPIO_ACTIVE_LOW` 再试
 
-## 7. 后续
+## 7. 原理图核对（2026-10-22）
 
+拿 `sch.pdf`（14 页，嘉立创 EDA 导出）逐页对了一遍，结论如下。
+
+### 7.1 被证实的判断
+
+| 项 | 原理图证据 |
+|---|---|
+| PMUIO2 = 3.3V | 第 2 页 U1.7：PMUIO2 引脚 W19 接 `VCC3V3_PMU`；PMUIO1 标注 "3.3V Only" |
+| USB OTG VBUS 使能 = GPIO0_A5 | 第 2 页 `USB_OTG_PWREN_H_GPIO0_A5`，第 12 页驱动 U37(SY6280) |
+| USB HOST1 VBUS 使能 = GPIO0_A6 | 第 2 页 `USB_HOST_PWREN_H_GPIO0_A6` |
+| VCCIO_WL = 1.8V | 第 10 页：`VCC_1V8 → R55 0Ω → VCCIO_WL`，`VCC_3V3 → R56 NC` |
+| SD 卡检测 = SDMMC0_DET | 第 2 页 `SDMMC0_DET/SATA_CP_DET/.../GPIO0_A4`，第 9 页接 TF 座 CD |
+| 电源树与 EVB 一致 | 第 10 页 RK809 四路 DCDC + 九路 LDO 与 EVB 完全对应 |
+| TCS4525 供 VDD_CPU | 第 11 页 U3，I2C0，默认 0.9V |
+
+### 7.2 与口头描述不一致的地方
+
+**a) 板上有 eMMC（U5）和 SPI Flash 位（U19）。**
+之前说"存储只有 SD 卡"。图上是 SD + eMMC + SPI NOR/NAND 三个位。
+当前设备树里 `sdhci` / `sfc` 仍是关闭的（按 SD 启动处理），若 eMMC 已贴片可再打开。
+
+**b) 有一个 mini-PCIe / M.2 4G 模块座。**
+第 14 页：Quectel RM500Q 类模块，走 PCIe x1 + USB3 + UIM，
+电源 `VCC3V3_M2` 由 SY8113 产生，使能脚 `4G_PWREN_H_GPIO0_C6`。
+当前设备树把 `pcie3x2` / `pcie30phy` 关了 —— 不用 4G 没问题，要用就得开。
+
+**c) 板载音频是有的。**
+第 10 页 RK809 CODEC 段有 HP_OUT_L/R、MIC；第 8 页有 3.5mm 耳机座和 MIC 电路。
+之前把 `rk809_sound` 关掉了，现已改为 `okay`。
+
+**d) 主输入是 5V VBUS，不是 12V。**
+第 11 页：DC 座/USB → SMBJ33A → **TPS54540DDAR** → `VCC5V0_SYS` → SY8113 → `VCC3V3_SYS`。
+EVB 的 `dc_12v` 在本板根本不存在，设备树里已用自定义 `vbus` 5V 稳压器替代。
+
+### 7.3 新发现的风险：LPDDR4X 的 VDDQ
+
+第 11 页 `VCC_LPDDR4_VCC` 段：U4（SY8089AAAC）用于产生 `VCC0V6_DDR`，
+但**图中标注 NC（不贴）**，同时 `R64 = 0Ω`，注释写「Default: LPDDR4=1.1V」。
+
+LPDDR4X 的 VDDQ 规范是 **0.6V**，LPDDR4 才是 1.1V。
+颗粒 `RS1G32LO4D2BDS-53BT` 是 LPDDR4X。
+若真的把 1.1V 加到 VDDQ 上属于超压。**需要确认 BOM / 贴片选项**，
+不能靠软件规避（软件只能改 SW3 的输出，改不了这颗外部 buck）。
+
+## 8. 后续
+
+- [ ] 确认 DDR VDDQ 电压（见 7.3，最高优先级）
 - [ ] 补一份 u-boot 板级 dts
 - [ ] 按实际 SD 容量重算 `parameter-buildroot-fit.txt`
-- [ ] 若加 eMMC，重新打开 `sdhci` 并调整启动顺序
+- [ ] 若 eMMC 已贴片，打开 `sdhci` 并调整启动顺序
+- [ ] 若要上 4G 模块，打开 `pcie3x2` 并加 `4G_PWREN`(GPIO0_C6) 控制
 - [ ] 硬件确认项见 [hardware.md](hardware.md) 第 6 节

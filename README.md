@@ -1,7 +1,7 @@
 # RK3568B2 自定义开发板 Linux 6.1 板级支持
 
 > 一块自制的 RK3568B2 开发板，基于 Rockchip Linux 6.1 SDK 的板级移植。
-> 当前状态：**设备树编译验证通过，尚未上板实测**。
+> 当前状态：**设备树编译验证通过，硬件配置已按原理图核对，尚未上板实测**。
 
 [English summary](#english-summary)
 
@@ -26,10 +26,12 @@
 | SoC | RK3568B2（FCCSP，最高 2.0GHz） |
 | 内存 | LPDDR4X 4GB x32（`RS1G32LO4D2BDS-53BT`，实跑 1560MHz） |
 | PMIC | RK809-5 @ I2C0 0x20 + TCS4525 @ I2C0 0x1c（VDD_CPU） |
-| 存储 | SD 卡启动（无 eMMC） |
+| 存储 | SD 卡启动；eMMC（U5）与 SPI Flash（U19）有焊接位 |
 | 以太网 | 1x RTL8211F-CG（GMAC0 / RGMII） |
 | 无线 | AP6212：WiFi = SDMMC1，BT = UART1（m0 + 硬件流控） |
 | 显示 | HDMI |
+| 音频 | RK809 内置 codec（耳机 + MIC） |
+| 扩展 | mini-PCIe / M.2 4G 模块座（PCIe x1 + USB3） |
 | USB | USB2.0 Type-C OTG + USB3.0 Host |
 | 调试 | UART2 @ 1500000 |
 
@@ -102,10 +104,8 @@ grep -rl myboard . | xargs sed -i 's/myboard/taishan/g'
 
 软件侧已验证到"能编译"为止，以下是**上板前需要人工确认**的项：
 
-- [ ] **VCCIO2/4/5/6/7 实际电压**已按 1.8/3.3V 配置，需与原理图复核
-- [ ] **PMUIO2** 暂按 3.3V（EVB 值），未确认
-- [ ] **主输入电压**：EVB 是 12V（`dc_12v`），若为 5V 输入需改 `vcc3v3_sys`/`vcc5v0_sys`
-- [ ] **VBUS 使能脚**：仍占用 EVB 的 GPIO0_A6(host) / GPIO0_A5(otg)
+- [ ] **DDR 的 VDDQ 电压**（LPDDR4X 应为 0.6V，图中 0.6V buck 标 NC，见 hardware.md 2.5）
+- [ ] eMMC / 4G 模块座是否使用
 - [ ] **RTL8211F** 的 PHY 地址（PHYAD strap）与复位脚 GPIO2_PD3
 - [ ] **u-boot 仍使用 EVB 设备树**（`rk3568-evb`），必要时需单独建一份
 - [ ] **分区表**沿用 EVB 的 `parameter-buildroot-fit.txt`，偏移未按本板存储调整

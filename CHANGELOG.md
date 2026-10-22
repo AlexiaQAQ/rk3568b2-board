@@ -3,6 +3,31 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.1.1] - 2026-10-22
+
+根据原理图 `sch.pdf` 复核后的修正。
+
+### 修复
+
+- 主输入电源：EVB 的 `dc_12v`(12V) 在本板不存在，改为自定义 `vbus`(5V) 稳压器
+  作为 `vcc3v3_sys` / `vcc5v0_sys` 的上游
+- 音频：原理图确认有耳机座与 MIC，`rk809_sound` 由 disabled 改为 **okay**
+
+### 确认
+
+- PMUIO2 = 3.3V（接 VCC3V3_PMU）
+- USB VBUS 使能：OTG = GPIO0_A5，HOST1 = GPIO0_A6
+- VCCIO_WL = 1.8V（R55 0Ω 到 VCC_1V8，R56 到 3.3V 为 NC）
+- SD 卡检测走 SDMMC0_DET（GPIO0_A4）
+- 电源树（RK809 4x DCDC + 9x LDO + TCS4525）与 EVB1 一致
+
+### 新增发现
+
+- 板上有 eMMC（U5）与 SPI Flash（U19）焊接位，当前仍按 SD 启动处理
+- 有 mini-PCIe / M.2 4G 模块座（PCIe x1 + USB3，`4G_PWREN` = GPIO0_C6）
+- ⚠️ DDR 的 VDDQ：LPDDR4X 应为 0.6V，但 0.6V buck（U4）标注 NC，
+  需确认 BOM，详见 `docs/hardware.md` 2.5
+
 ## [0.1.0] - 2026-10-21
 
 首个可编译的板级支持，尚未上板实测。
