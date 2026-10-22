@@ -39,6 +39,25 @@
 
 ## 快速开始
 
+### 0. 主机依赖
+
+Ubuntu 22.04/24.04 上至少需要：
+
+```bash
+sudo apt-get install -y \
+  build-essential git python3 python-is-python3 cmake \
+  bison flex bc libssl-dev libelf-dev libncurses-dev device-tree-compiler \
+  gawk texinfo diffstat chrpath patchelf expect rsync unzip bzip2 lz4
+```
+
+几个容易漏的点：
+
+- **`python-is-python3`**：SDK 的 `check-kernel.sh` 会检查 `python` 这个命令，
+  只有 `python3` 的机器会直接报 `Your python is missing`。
+- **`gawk`**：内核脚本里用了 gawk 的扩展语法，只有 mawk 时会在编译中途失败。
+- **`repo sync` 需要 `/dev/shm`**：受限容器/沙箱里会报
+  `PermissionError: /dev/shm/pym-*`，需放开该目录或换到普通主机环境。
+
 ### 1. 准备 SDK
 
 使用立创·泰山派 1M 的 kernel 6.1 SDK（`tspi_1m_linux_kernel6.1_sdk_20260807`），
