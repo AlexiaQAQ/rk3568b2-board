@@ -1,0 +1,12 @@
+# 原理图 / PCB / BOM 发布在立创开源平台（OSHWHub），仓库不重复维护
+hardware/*.pdf
+hardware/*.zip
+hardware/pcb/
+hardware/bom*/
+hardware/*.epro
+hardware/*.eprj
+
+# 本地临时文件
+*.swp
+*~
+.DS_Store

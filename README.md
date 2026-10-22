@@ -17,6 +17,7 @@
 | `patch/` | 可直接 `git apply` 到 SDK 的补丁 |
 | `docs/hardware.md` | 硬件规格、电源树、IO 电压域、引脚分配 |
 | `docs/porting-notes.md` | 移植思路、与 EVB 的差异、踩过的坑、验证记录 |
+| `hardware/README.md` | 硬件资料说明 + 原理图页面索引（**原理图/PCB 见立创开源平台**） |
 
 **为什么要基于 EVB 做减法**：这块板的电源树（RK809-5 + TCS4525）、AP6212、HDMI、USB 拓扑和 Rockchip RK3568 EVB1 高度一致，直接继承 1200 多行已验证配置，只覆盖差异项，比从零写可靠得多。
 
@@ -143,6 +144,7 @@ grep -rl myboard . | xargs sed -i 's/myboard/taishan/g'
   沿用其 `GPL-2.0+ OR MIT` 双许可声明（文件头 SPDX 已保留）。
 - 本仓库的文档与脚本建议使用 MIT 或 CC-BY-4.0。
 - **请勿转载 SDK 本体**（约 25GB 压缩包 + 25GB 源码树），只分发本仓库的板级差异。
+- 原理图 / PCB / BOM 发布在**立创开源硬件平台（OSHWHub）**，见 [hardware/README.md](hardware/README.md)。
 
 ## English summary
 
