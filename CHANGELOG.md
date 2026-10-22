@@ -3,6 +3,30 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.2.0] - 2026-10-22
+
+首次完成**端到端构建**（kernel → u-boot → buildroot → update.img）。
+
+### 构建产物
+
+| 文件 | 大小 | 说明 |
+|---|---|---|
+| `output/update/Image/update.img` | 1006 MB | 整包固件 |
+| `boot.img` | 40 MB | 内核 + dtb + resource |
+| `rootfs.ext2` | 761 MB | buildroot 根文件系统 |
+| `MiniLoaderAll.bin` | 472 KB | loader（DDR 1560MHz） |
+
+`boot.img` 内已确认包含 `model = "My RK3568B2 Board V10"`。
+
+### 环境问题记录（都会在别人机器上复现）
+
+1. 缺 `python` 命令（只有 `python3`）→ 装 `python-is-python3`
+2. 缺 `msgmerge` → 装 `gettext`
+3. `makeinfo` 缺 Perl 模块 `Text::Unidecode` → 装 `libtext-unidecode-perl`
+4. **SDK 路径不能含中文**：buildroot 内部 `LC_ALL=C` 时 Perl 无法处理
+   UTF-8 路径，报 `could not create directory '/home/alexia/??????/...'`。
+   必须放在纯 ASCII 路径下构建。
+
 ## [0.1.3] - 2026-10-22
 
 ### 澄清

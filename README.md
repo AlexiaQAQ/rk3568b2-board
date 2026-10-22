@@ -1,7 +1,8 @@
 # RK3568B2 自定义开发板 Linux 6.1 板级支持
 
 > 一块自制的 RK3568B2 开发板，基于 Rockchip Linux 6.1 SDK 的板级移植。
-> 当前状态：**设备树编译验证通过，硬件配置已按原理图核对，尚未上板实测**。
+> 当前状态：**端到端构建通过（kernel + u-boot + buildroot + update.img），
+硬件配置已按原理图核对，尚未上板实测**。
 
 [English summary](#english-summary)
 
@@ -94,6 +95,11 @@ cd ../device/rockchip        && git apply ../../patch/0002-*.patch
 补丁已用 `git apply --check -R` 反向校验过，与当前 SDK 树一致。
 
 ### 3. 编译
+
+> ⚠️ **SDK 必须放在纯 ASCII 路径下**（例如 `/home/user/rk3568-sdk`）。
+> 路径含中文时，buildroot 内部的 `LC_ALL=C` 会让 Perl 把路径解析成 `??????`，
+> 报 `makeinfo: could not create directory ...`。
+
 
 ```bash
 cd extracted_sdk
