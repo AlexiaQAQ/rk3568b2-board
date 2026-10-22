@@ -17,6 +17,8 @@ PORT      := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 NAME      := rk3568-myboard-v10
 DEPS_BIN  := $(HOME)/.local/opt/sdk-deps/bin
 IMAGE     := $(SDK)/output/update/Image/update.img
+LOADER    := $(SDK)/u-boot/rk356x_spl_loader_v1.25.114.bin
+UT        := $(SDK)/tools/linux/Linux_Upgrade_Tool/Linux_Upgrade_Tool/upgrade_tool
 
 # 依赖工具解压在用户目录时自动挂到 PATH 前面
 ifneq ($(wildcard $(DEPS_BIN)),)
@@ -117,7 +119,19 @@ distclean: clean
 	@rm -rf "$(SDK)/output" "$(SDK)/rockdev"
 	@echo "已清理 SDK output/ 与 rockdev/（会丢失 lunch 选择）"
 
+# Rockchip 官方流程：MaskROM → db 下 boot → ssd 选存储 → uf 烧固件
+# 本板无 eMMC，ssd 时选 SD 卡
 flash:
 	@test -f "$(IMAGE)" || { echo "❌ 还没有 $(IMAGE)，先 make image"; exit 1; }
-	@echo "请确认板子已进入 MaskROM（按住 RECOVERY 上电）"
-	@sudo upgrade_tool uf "$(IMAGE)"
+	@test -x "$(UT)"    || { echo "❌ 找不到 upgrade_tool: $(UT)"; exit 1; }
+	@echo "1) 确认设备进入 MaskROM（无启动介质时上电即自动进入）"
+	@sudo "$(UT)" ld
+	@echo ""
+	@echo "2) 下载 boot（MaskROM 下必须先做这步才能通讯）"
+	@sudo "$(UT)" db "$(LOADER)"
+	@echo ""
+	@echo "3) 选择存储 —— 在列表里选 SD 卡（本板无 eMMC）"
+	@sudo "$(UT)" ssd
+	@echo ""
+	@echo "4) 烧录固件"
+	@sudo "$(UT)" uf "$(IMAGE)"

@@ -141,7 +141,56 @@ cd "$SDK"
 
 ### 4. 烧录
 
-MaskROM 模式 + `upgrade_tool`（Linux）或瑞芯微工具（Windows），烧 `update.img`。
+本板**没有 eMMC**，只能从 SD 卡启动，所以烧录目标就是 SD 卡。
+
+#### 方式一：Linux + upgrade_tool（推荐）
+
+```bash
+# 1. 插好 SD 卡，板子进入 MaskROM（无启动介质时上电通常会自动进入）
+# 2. 连 USB
+cd ~/rk3568-sdk/tools/linux/Linux_Upgrade_Tool/Linux_Upgrade_Tool
+
+sudo ./upgrade_tool ld                                       # 确认设备
+sudo ./upgrade_tool db ../../../../u-boot/rk356x_spl_loader_v1.25.114.bin
+sudo ./upgrade_tool ssd                                      # 选 SD 卡
+sudo ./upgrade_tool uf ../../../../output/update/Image/update.img
+```
+
+或者直接：
+
+```bash
+cd board-port
+make flash
+```
+
+它会把上面四步按顺序跑一遍。
+
+**关键点**：MaskROM 状态下必须先 `db` 下载 boot，之后才能用 `ssd` / `uf` 通讯。
+`ssd` 会列出可用存储（eMMC / SD / NAND），选 SD 卡前面的编号。
+
+#### 方式二：Windows + RKDevTool
+
+1. 装 Rockchip USB 驱动（DriverAssistant）
+2. 打开 `RKDevTool.exe`，正常情况下会显示"发现一个 MASKROM 设备"
+3. 点"升级固件" → "固件" → 选 `update.img` → "升级"
+4. 若目标是 SD 卡，先点"高级功能"→ 切换存储到 SD
+
+#### 进 MaskROM 的办法
+
+- **首选**：板子上电时 BootROM 找不到可启动介质（无 eMMC、SD 为空），会**自动停在 MaskROM**
+- 板上有 RECOVERY/UPDATE 按键时：按住不放再上电
+- 已有系统时：`adb shell reboot loader` 或 `reboot loader`
+
+#### 烧完怎么验证
+
+串口（UART2 @ 1500000）应该能看到 loader 日志，内核起来后：
+
+```bash
+cat /proc/cpuinfo                    # 4 核
+dmesg | grep -i ddr                  # 1560MHz
+ip link                              # eth0
+lspci                                # M.2 上的 NVMe
+```
 
 ## 改名
 
