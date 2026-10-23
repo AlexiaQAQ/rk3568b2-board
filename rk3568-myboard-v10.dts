@@ -102,16 +102,36 @@
 	vin-supply = <&vcc5v0_sys>;
 };
 
-/* ==================== 以太网：只保留 GMAC0 / RTL8211F ==================== */
-&gmac0 {
-	/* 保留 EVB 的 RGMII + RTL8211F 配置，核对这三项：
-	 *   snps,reset-gpio      = <&gpio2 RK_PD3 ...>   ← 你的 PHY RESET 脚
-	 *   tx_delay = <0x3c> / rx_delay = <0x2f>        ← 布线不同需要微调
-	 *   phy-handle 的 PHY 地址（RTL8211F 由 PHYAD strap 决定，常见 0x00/0x01）
-	 */
-	status = "okay";
+/* ==================== GPU ==================== */
+/*
+ * 首板实测：GPU 电源域上电握手失败，内核直接 panic（该 panic 是硬编码的）：
+ *   rockchip-pm-domain: failed to get ack on domain 'gpu', val=0x4e
+ *   Kernel panic - not syncing: panic_on_set_idle set ...
+ *
+ * 先禁用 GPU 保证系统能进用户态（HDMI 显示由 VOP 负责，不依赖 Mali）。
+ * 待确认 VDD_GPU(SW2) 实测电压后再排查根因。
+ */
+&gpu {
+	status = "disabled";
 };
 
+/* ==================== 以太网：只保留 GMAC0 / RTL8211F ==================== */
+/*
+ * 实测发现：GMAC0 的 TXD0/TXD1(GPIO2_B3/B4) 与 UART1(BT) 物理引脚冲突，
+ * RGMII 数据线(GPIO2_A3~A6)又与 SDMMC1(WiFi SDIO) 冲突。
+ * 说明本板以太网不在 GMAC0 上 —— 待确认是否使用 GMAC1。
+ *
+ * 暂时关闭，避免在内核日志里刷错误。
+ */
+&gmac0 {
+	status = "disabled";
+};
+
+&mdio0 {
+	status = "disabled";
+};
+
+/* GMAC1：本板以太网可能接在这路，待原理图确认后启用 */
 &gmac1 {
 	status = "disabled";
 };
@@ -426,6 +446,11 @@
 /* 音频：原理图确认有耳机座(HP_OUT_L/R) + MIC 电路，走 RK809 内置 codec */
 &rk809_sound {
 	status = "okay";
+};
+
+/* EVB 的 PWM4 用于 LCD 背光，占用 GPIO0_C6 —— 与 M.2 的 3.3V 使能冲突 */
+&pwm4 {
+	status = "disabled";
 };
 
 /* EVB 的心跳灯在 GPIO0_C0，本板若无此灯就关掉 */
