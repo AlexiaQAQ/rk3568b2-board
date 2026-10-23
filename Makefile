@@ -12,11 +12,11 @@
 #   make image SDK=/path/to/sdk
 
 SDK ?= $(HOME)/rk3568-sdk
-PORT ?= /dev/ttyUSB0
-BAUD ?= 1500000
+SERIAL_PORT ?= /dev/ttyUSB0
+SERIAL_BAUD ?= 1500000
 LOG  ?= serial.log
 
-PORT      := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+REPO_DIR  := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 NAME      := rk3568-myboard-v10
 DEPS_BIN  := $(HOME)/.local/opt/sdk-deps/bin
 IMAGE     := $(SDK)/output/update/Image/update.img
@@ -44,8 +44,8 @@ help:
 	@echo "  make image       全量编译并生成 update.img"
 	@echo "  make clean       清理 buildroot 输出（下次全量重编）"
 	@echo "  make flash       烧录到板子（需 MaskROM + upgrade_tool）"
-	@echo "  make serial      打开串口监视器 ($(PORT) @ $(BAUD))"
-	@echo "                   可覆盖：make serial PORT=/dev/ttyACM0 BAUD=115200"
+	@echo "  make serial      打开串口监视器 ($(SERIAL_PORT) @ $(SERIAL_BAUD))"
+	@echo "                   可覆盖：make serial SERIAL_PORT=/dev/ttyACM0 SERIAL_BAUD=115200"
 	@echo ""
 	@echo "  当前 SDK: $(SDK)"
 
@@ -116,7 +116,7 @@ image: install
 	@echo "产物: $(IMAGE)"
 
 serial:
-	@python3 scripts/serial_monitor.py -p $(PORT) -b $(BAUD) -l $(LOG)
+	@python3 scripts/serial_monitor.py -p $(SERIAL_PORT) -b $(SERIAL_BAUD) -l $(LOG)
 
 # ---------- 清理与烧录 ----------
 clean:
