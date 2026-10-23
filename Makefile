@@ -12,6 +12,9 @@
 #   make image SDK=/path/to/sdk
 
 SDK ?= $(HOME)/rk3568-sdk
+PORT ?= /dev/ttyUSB0
+BAUD ?= 1500000
+LOG  ?= serial.log
 
 PORT      := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 NAME      := rk3568-myboard-v10
@@ -26,7 +29,7 @@ export PATH := $(DEPS_BIN):$(PATH)
 endif
 
 .DEFAULT_GOAL := help
-.PHONY: help deps install check kernel uboot buildroot image firmware clean distclean flash
+.PHONY: help deps install check kernel uboot buildroot image firmware clean distclean flash serial
 
 help:
 	@echo "RK3568B2 板级支持"
@@ -41,6 +44,8 @@ help:
 	@echo "  make image       全量编译并生成 update.img"
 	@echo "  make clean       清理 buildroot 输出（下次全量重编）"
 	@echo "  make flash       烧录到板子（需 MaskROM + upgrade_tool）"
+	@echo "  make serial      打开串口监视器 ($(PORT) @ $(BAUD))"
+	@echo "                   可覆盖：make serial PORT=/dev/ttyACM0 BAUD=115200"
 	@echo ""
 	@echo "  当前 SDK: $(SDK)"
 
@@ -109,6 +114,9 @@ image: install
 	@echo ""
 	@ls -lh "$(IMAGE)" 2>/dev/null || true
 	@echo "产物: $(IMAGE)"
+
+serial:
+	@python3 scripts/serial_monitor.py -p $(PORT) -b $(BAUD) -l $(LOG)
 
 # ---------- 清理与烧录 ----------
 clean:
