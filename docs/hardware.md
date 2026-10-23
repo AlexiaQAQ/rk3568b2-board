@@ -52,9 +52,9 @@ M.2 插槽的 3.3V（`VCC3V3_M2`）由 `4G_PWREN_H_GPIO0_C6` 控制，
 | 路 | regulator 名 | 默认电压 | 供电对象 |
 |---|---|---|---|
 | SW1 | `vdd_logic` | **FB 直连输出**，等于 PMIC 内部基准（无外部分压） | SoC 逻辑域 VDD_LOGIC |
-| SW2 | `vdd_gpu` | — | GPU |
+| SW2 | `vdd_gpu` | FB 直连，PMIC 内部基准 | GPU |
 | SW3 | `vcc_ddr` | **1.1V**（R44 47k / R45 120k 分压设定） | DDR VDD2 |
-| SW4 | `vdd_npu` | — | NPU |
+| SW4 | `vdd_npu` | FB 直连，PMIC 内部基准 | NPU |
 | — | `vcc_1v8`（DCDC_REG5） | 1.8V | 1.8V 系统电源，含 VCCIO4/VCCIO6 |
 
 ### 2.3 RK809 LDO
