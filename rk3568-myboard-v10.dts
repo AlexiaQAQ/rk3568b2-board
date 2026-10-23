@@ -34,8 +34,9 @@
 	 */
 
 	/*
-	 * 主输入是 VBUS（DC 座 + USB，5V），经 TPS54540 产生 VCC5V0_SYS，
-	 * 再经 SY8113 产生 VCC3V3_SYS。EVB 的 dc_12v 是 12V 输入，本板不存在。
+	 * 本板只从 DC 座供电，USB 口不供电。
+	 * DC 座 -> SMBJ33A(TVS) -> TPS54540(降压) -> VCC5V0_SYS -> SY8113 -> VCC3V3_SYS
+	 * TODO: DC 输入电压待确认（器件耐压 33V/42V，推测 12V 或 24V，当前暂按 5V 占位）
 	 */
 	vbus: vbus-5v {
 		compatible = "regulator-fixed";

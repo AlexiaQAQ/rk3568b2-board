@@ -24,17 +24,21 @@
 
 ### 2.1 输入
 
+**只从 DC 座供电，USB 口不供电**（USB 仅用于数据 / 烧录 / OTG）。
+
 ```
-DC 座 / USB VBUS (5V) ──> TPS54540DDAR ──> VCC5V0_SYS ──> SY8113 ──> VCC3V3_SYS
-                                  │                 └──> SY8113(U31) ──> VCC3V3_M2 (M.2 插槽)
-                                  └──> VCC5V0_USB ──> (SY6280) ──> VCC5V0_USB_OTG0 / HOST1
+DC 座 ──> SMBJ33A(TVS) ──> TPS54540DDAR(降压) ──> VCC5V0_SYS ──┬──> SY8113 ──> VCC3V3_SYS
+                                                          ├──> SY8113(U31) ──> VCC3V3_M2 (M.2)
+                                                          └──> VCC5V0_USB ──> (SY6280) ──> OTG/HOST VBUS
 ```
+
+DC 输入电压范围尚未确认。从器件选型看：`SMBJ33A` 是 33V 关断电压的 TVS，
+`TPS54540` 耐压 42V、5A，**说明输入允许较高电压（12V 或 24V），不是 5V**。
+
+> 待确认：DC 座实际输入电压。确认后需要修正设备树里 `dc_in` 稳压器的电压值。
 
 M.2 插槽的 3.3V（`VCC3V3_M2`）由 `4G_PWREN_H_GPIO0_C6` 控制，
 设备树里做成了 `always-on` 的固定稳压器，否则硬盘不上电。
-
-**注意**：EVB 用的是 12V（`dc_12v`）输入，本板是 **VBUS 5V**。
-设备树里已用自定义的 `vbus` 固定 5V 稳压器替换 `dc_12v` 作为 `vcc3v3_sys` / `vcc5v0_sys` 的上游。
 
 ### 2.2 RK809 DCDC
 
