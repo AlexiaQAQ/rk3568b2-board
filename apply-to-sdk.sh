@@ -19,13 +19,21 @@ CHIP_DIR="$SDK/device/rockchip/rk3566_rk3568"
 DTS_DIR="$SDK/kernel-6.1/arch/arm64/boot/dts/rockchip"
 NAME="rk3568-myboard-v10"
 
-echo "[1/4] 安装设备树 -> $DTS_DIR/$NAME.dts"
+echo "[1/5] 安装设备树 -> $DTS_DIR/$NAME.dts"
 cp "$PORT/$NAME.dts" "$DTS_DIR/"
 
-echo "[2/4] 安装 defconfig -> $CHIP_DIR"
+echo "[2/5] 安装 defconfig -> $CHIP_DIR"
 cp "$PORT/rockchip_rk3568_myboard_v10_defconfig" "$CHIP_DIR/"
 
-echo "[3/4] 注册到 Makefile"
+echo "[3/5] 打 u-boot 补丁（默认 bootargs）"
+UB="$SDK/u-boot"
+if [ -d "$UB/.git" ] && ! grep -q "root=PARTUUID=614e0000-0000-4b53" "$UB/include/configs/rk3568_common.h"; then
+	(cd "$UB" && git apply "$PORT/patch/0003-u-boot-default-bootargs.patch") && echo "      已应用"
+else
+	echo "      已存在或非 git 仓库，跳过"
+fi
+
+echo "[4/5] 注册到 Makefile"
 if grep -q "$NAME.dtb" "$DTS_DIR/Makefile"; then
 	echo "      已存在，跳过"
 else
@@ -34,11 +42,11 @@ else
 fi
 
 if [ "${2:-}" != "--build" ]; then
-	echo "[4/4] 跳过编译（加 --build 可编译验证）"
+	echo "[5/5] 跳过编译（加 --build 可编译验证）"
 	exit 0
 fi
 
-echo "[4/4] 编译 dtb 验证"
+echo "[5/5] 编译 dtb 验证"
 CROSS="$SDK/prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-"
 [ -x "${CROSS}gcc" ] || CROSS="aarch64-linux-gnu-"
 
