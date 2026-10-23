@@ -40,7 +40,7 @@
 | VCC5V0_SYS | 5.0V | TPS54540 | 全板不工作 |
 | VCC3V3_SYS | 3.3V | SY8113 | 全板不工作 |
 | VCC3V3_PMU | 3.3V | LDO6 | PMU 域异常，无法开机 |
-| VDD_LOGIC | 按 FB 分压（典型 0.9V） | SW1 | SoC 不跑 |
+| VDD_LOGIC | FB 直连，等于 PMIC 基准（实测确认，常见 0.9V） | SW1 | SoC 不跑 |
 | **VDD_CPU** | **0.9V**（TCS4525 默认） | TCS4525 | 偏低会死机/不启动 |
 | VDD_GPU | RK809 默认值 | SW2 | 内核起来后才会调整 |
 | VDD_NPU | RK809 默认值 | SW4 | 同上 |
