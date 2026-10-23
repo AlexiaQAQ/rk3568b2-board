@@ -115,7 +115,7 @@
 	status = "disabled";
 };
 
-/* ==================== 以太网：只保留 GMAC0 / RTL8211F ==================== */
+/* ==================== 以太网：GMAC1 / RTL8211F ==================== */
 /*
  * 实测发现：GMAC0 的 TXD0/TXD1(GPIO2_B3/B4) 与 UART1(BT) 物理引脚冲突，
  * RGMII 数据线(GPIO2_A3~A6)又与 SDMMC1(WiFi SDIO) 冲突。
@@ -131,13 +131,24 @@
 	status = "disabled";
 };
 
-/* GMAC1：本板以太网可能接在这路，待原理图确认后启用 */
+/*
+ * 原理图确认：RTL8211F 接在 GMAC1（m1 复用），信号名带 _M1：
+ *   MDC/MDIO   -> GPIO4_B6/B7
+ *   TXD0~3/TXEN/TXCLK -> GPIO4_A0~A6
+ *   RXD0~3/RXCLK/RXDV -> GPIO4_A1/A2 + GPIO3_D6/D7
+ *   PHY 复位    -> GMAC1_RSTN_GPIO3_B0（经 R172 0Ω 到 RESET#）
+ *   PHY 中断    -> GMAC1_INT/PMEB_GPIO3_A7（暂不使用）
+ *
+ * EVB 的 gmac1 节点已经是 m1 引脚组、PHY 地址 0x0、延迟 0x4f/0x26，
+ * 只需改复位脚并打开。
+ */
 &gmac1 {
-	status = "disabled";
+	snps,reset-gpio = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
+	status = "okay";
 };
 
 &mdio1 {
-	status = "disabled";
+	status = "okay";
 };
 
 /* ==================== 存储：只有 SD 卡 ==================== */
