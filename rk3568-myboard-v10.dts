@@ -29,6 +29,21 @@
 	compatible = "rockchip,rk3568-myboard-v10", "rockchip,rk3568";
 
 	/*
+	 * 内核命令行：参考设计（EVB）的 dts 里没有 /chosen，
+	 * 而本 SDK 的内核 CONFIG_CMDLINE 为空，若 u-boot 未能注入 bootargs，
+	 * 内核会既无 console 也无 root=，表现为 "Starting kernel ..." 之后无输出。
+	 *
+	 * - console/earlycon 走 UART2 (0xfe660000)，1500000 8N1
+	 * - root 用 PARTUUID 而不是 /dev/mmcblkXpY：SD 卡和 WiFi 的 SDIO 都注册成 mmc 设备，
+	 *   内核里谁先 probe 谁是 mmcblk0 并不确定，写死设备名容易挂错分区
+	 * - 若 u-boot 环境变量里有 bootargs，会覆盖这里
+	 */
+	chosen {
+		stdout-path = "serial2:1500000n8";
+		bootargs = "console=ttyS2,1500000n8 earlycon=uart8250,mmio32,0xfe660000,1500000n8 root=PARTUUID=614e0000-0000-4b53-8000-1d28000054a9 rootwait rw";
+	};
+
+	/*
 	 * 4GB LPDDR4X：/memory 由 u-boot 在启动时自动填充，不要在这里硬编码。
 	 * DDR 时序/容量由 rkbin 的 rk3568_ddr_1560MHz_v1.26.bin 负责。
 	 */
