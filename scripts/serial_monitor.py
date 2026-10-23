@@ -49,12 +49,16 @@ def main() -> int:
     )
 
     fd = sys.stdin.fileno()
-    old_attr = termios.tcgetattr(fd)
+    # 非终端（管道/重定向）时无法用 raw 模式，退化为只读
+    interactive = os.isatty(fd)
+    old_attr = termios.tcgetattr(fd) if interactive else None
     try:
-        tty.setraw(fd)
+        if interactive:
+            tty.setraw(fd)
         while True:
-            rfds, _, _ = select.select([fd, ser.fileno()], [], [], 0.05)
-            if fd in rfds:
+            watch = [ser.fileno()] + ([fd] if interactive else [])
+            rfds, _, _ = select.select(watch, [], [], 0.05)
+            if interactive and fd in rfds:
                 key = os.read(fd, 1024)
                 if not key or QUIT_KEY in key:
                     break
@@ -68,7 +72,8 @@ def main() -> int:
     except KeyboardInterrupt:
         pass
     finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_attr)
+        if interactive:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_attr)
         if log:
             log.close()
         ser.close()
