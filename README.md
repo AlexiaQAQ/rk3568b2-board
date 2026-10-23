@@ -18,6 +18,7 @@
 | `docs/hardware.md` | 硬件规格、电源树、IO 电压域、引脚分配 |
 | `docs/porting-notes.md` | 移植思路、与 EVB 的差异、踩过的坑、验证记录 |
 | `hardware/README.md` | 硬件资料说明 + 原理图页面索引（**原理图/PCB 见立创开源平台**） |
+| `docs/bringup-checklist.md` | **首板上电检查表**：短路测试、逐路电压、时钟复位 |
 
 **为什么要基于 EVB 做减法**：这块板的电源树（RK809-5 + TCS4525）、AP6212、HDMI、USB 拓扑和 Rockchip RK3568 EVB1 高度一致，直接继承 1200 多行已验证配置，只覆盖差异项，比从零写可靠得多。
 
