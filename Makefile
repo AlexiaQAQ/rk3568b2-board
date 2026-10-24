@@ -128,9 +128,11 @@ distclean: clean
 	@echo "已清理 SDK output/ 与 rockdev/（会丢失 lunch 选择）"
 
 # Rockchip 官方流程：MaskROM → db 下 boot → ssd 选存储 → uf 烧固件
-# 本板无 eMMC，存储固定选 SD（ssd 列表里的 No=3）
+# 本板无 eMMC，ssd 时必须选 SD（列表里的 No=3）
 # 不需要 sudo：/etc/udev/rules.d/99-rockchip-usb.rules 已把 VID 2207 设为 0666
-STORAGE_NO ?= 3
+#
+# 注意：ssd 只能交互输入。用 echo 3 | upgrade_tool ssd 会因为拿不到 tty 直接
+# 返回 "Switch Storage failed!"（它内部要做终端处理），别再试管道了。
 flash:
 	@test -f "$(IMAGE)" || { echo "❌ 还没有 $(IMAGE)，先 make image"; exit 1; }
 	@test -x "$(UT)"    || { echo "❌ 找不到 upgrade_tool: $(UT)"; exit 1; }
@@ -138,13 +140,12 @@ flash:
 	@"$(UT)" ld
 	@echo ""
 	@echo "   列表为 0 时：板子断电 → USB OTG 接电脑 → 上电（无启动介质会自动进 MaskROM）"
-	@echo "   'Download IDB Fail' 多为 USB 供电/线材问题，换直连口和短线再试"
 	@echo ""
 	@echo "1) 下载 boot（MaskROM 下必须先做这步才能通讯）"
 	@"$(UT)" db "$(LOADER)"
 	@echo ""
-	@echo "2) 选择存储 = SD（No=$(STORAGE_NO)）"
-	@echo "$(STORAGE_NO)" | "$(UT)" ssd
+	@echo "2) 选择存储 —— 在下面的列表里输入 3（SD），本板没有 eMMC"
+	@"$(UT)" ssd
 	@echo ""
 	@echo "3) 烧录固件（会擦掉 SD 上所有分区，rootfs 一并换成干净的 ext4）"
 	@"$(UT)" uf "$(IMAGE)"
