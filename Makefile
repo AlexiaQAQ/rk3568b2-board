@@ -29,7 +29,7 @@ export PATH := $(DEPS_BIN):$(PATH)
 endif
 
 .DEFAULT_GOAL := help
-.PHONY: help deps install check kernel uboot buildroot image firmware clean distclean flash flash-di serial
+.PHONY: help deps install check kernel uboot buildroot image firmware clean distclean flash flash-di flash-wl serial
 
 help:
 	@echo "RK3568B2 板级支持"
@@ -45,6 +45,7 @@ help:
 	@echo "  make clean       清理 buildroot 输出（下次全量重编）"
 	@echo "  make flash       烧录整包（MaskROM + upgrade_tool，含 IDB）"
 	@echo "  make flash-di    只写 uboot/boot/rootfs 分区，跳过 IDB（IDB 写失败时用）"
+	@echo "  make flash-wl    按扇区直写，绕开分区表（最底层退路）"
 	@echo "  make serial      打开串口监视器 ($(SERIAL_PORT) @ $(SERIAL_BAUD))"
 	@echo "                   可覆盖：make serial SERIAL_PORT=/dev/ttyACM0 SERIAL_BAUD=115200"
 	@echo ""
@@ -156,6 +157,7 @@ flash:
 # 但卡上的 IDB 本来是好的（能正常启动），只是要换 boot/rootfs。
 # 所以改用 di 逐分区写，完全不碰 IDB。
 FW := $(SDK)/output/firmware
+PARAM := $(SDK)/device/rockchip/.chips/rk3566_rk3568/parameter-buildroot-fit.txt
 flash-di:
 	@test -x "$(UT)" || { echo "❌ 找不到 upgrade_tool: $(UT)"; exit 1; }
 	@test -f "$(FW)/rootfs.img" || { echo "❌ 还没有 $(FW)/rootfs.img，先 make image"; exit 1; }
@@ -168,9 +170,32 @@ flash-di:
 	@"$(UT)" ssd
 	@echo ""
 	@echo "2) 逐分区写入（不写 IDB，卡能启动就行）"
+	@echo "   2.1 先下发 parameter，不然 di 会报 'parameter is invalid'"
+	@"$(UT)" di -p "$(PARAM)"
+	@echo "   2.2 uboot / boot / rootfs"
 	@"$(UT)" di -u "$(FW)/uboot.img"
 	@"$(UT)" di -b "$(FW)/boot.img"
 	@"$(UT)" di -s "$(FW)/rootfs.img"
 	@echo ""
 	@echo "3) 复位"
+	@"$(UT)" rd
+
+# 最底层的退路：绕开分区表和 parameter，直接按扇区写。
+# 偏移来自 parameter-buildroot-fit.txt 的 CMDLINE（单位 512B 扇区）：
+#   uboot  0x00002000@0x00004000  → 扇区 16384
+#   boot   0x00020000@0x00008000  → 扇区 32768
+#   rootfs 0x01800000@0x00078000  → 扇区 491520
+UBOOT_SEC  := 16384
+BOOT_SEC   := 32768
+ROOTFS_SEC := 491520
+flash-wl:
+	@test -x "$(UT)" || { echo "❌ 找不到 upgrade_tool: $(UT)"; exit 1; }
+	@"$(UT)" ld
+	@"$(UT)" db "$(LOADER)"
+	@echo "选择存储 —— 输入 3（SD）"
+	@"$(UT)" ssd
+	@echo "按扇区直写（不碰 IDB / GPT）"
+	@"$(UT)" wl $(UBOOT_SEC)  "$(FW)/uboot.img"
+	@"$(UT)" wl $(BOOT_SEC)   "$(FW)/boot.img"
+	@"$(UT)" wl $(ROOTFS_SEC) "$(FW)/rootfs.img"
 	@"$(UT)" rd
