@@ -3,6 +3,32 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.3.0] - 2026-10-24
+
+**首次上板启动到用户态 shell**（`root@rk3568-buildroot:/#`）。
+
+### 板上实测结论
+
+| 项 | 结果 |
+|---|---|
+| DDR | LPDDR4X 4GB @1560MHz，训练通过 |
+| PMIC / IO 域 | RK809 + TCS4525 正常；vccio4/6=1.8V 生效 |
+| SD 卡 | 4-bit 补焊后正常（此前 1-bit 规避） |
+| 音频 | RK809 codec 加载 |
+| WiFi/BT 控制脚 | rfkill 解析正确（GPIO2_B1/B2/B7/C0/C1） |
+| 以太网 | GMAC1 控制器起来，**PHY 地址 0 无应答** |
+| WiFi 模块 | SDIO 未识别（mmc2 停在 375kHz） |
+| GPU | VDD_GPU 实测 0V → 暂时禁用，weston 无法启动 |
+
+### 新增补丁
+
+- `patch/0004-kernel-pm-domain-no-panic.patch`：电源域握手失败由 panic 改为报错继续
+
+### 踩坑记录
+
+- 设备树里加 `/chosen` 会导致内核零输出（由 u-boot 提供 bootargs 即可）
+- SD SDR104/148.5MHz 在本板不可用；4-bit 50MHz 补焊后正常
+
 ## [0.2.0] - 2026-10-22
 
 首次完成**端到端构建**（kernel → u-boot → buildroot → update.img）。
