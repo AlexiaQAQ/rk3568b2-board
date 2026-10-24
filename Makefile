@@ -29,7 +29,7 @@ export PATH := $(DEPS_BIN):$(PATH)
 endif
 
 .DEFAULT_GOAL := help
-.PHONY: help deps install check kernel uboot buildroot image firmware clean distclean flash serial
+.PHONY: help deps install check kernel uboot buildroot image firmware clean distclean flash flash-di serial
 
 help:
 	@echo "RK3568B2 板级支持"
@@ -43,7 +43,8 @@ help:
 	@echo "  make firmware    打包 boot/uboot/loader"
 	@echo "  make image       全量编译并生成 update.img"
 	@echo "  make clean       清理 buildroot 输出（下次全量重编）"
-	@echo "  make flash       烧录到板子（需 MaskROM + upgrade_tool）"
+	@echo "  make flash       烧录整包（MaskROM + upgrade_tool，含 IDB）"
+	@echo "  make flash-di    只写 uboot/boot/rootfs 分区，跳过 IDB（IDB 写失败时用）"
 	@echo "  make serial      打开串口监视器 ($(SERIAL_PORT) @ $(SERIAL_BAUD))"
 	@echo "                   可覆盖：make serial SERIAL_PORT=/dev/ttyACM0 SERIAL_BAUD=115200"
 	@echo ""
@@ -149,3 +150,27 @@ flash:
 	@echo ""
 	@echo "3) 烧录固件（会擦掉 SD 上所有分区，rootfs 一并换成干净的 ext4）"
 	@"$(UT)" uf "$(IMAGE)"
+
+# uf 会先写 IDB（idblock），这颗卡/这套 SD 写通路在 IDB 阶段就失败：
+#   Prepare IDB Success → Download IDB Fail
+# 但卡上的 IDB 本来是好的（能正常启动），只是要换 boot/rootfs。
+# 所以改用 di 逐分区写，完全不碰 IDB。
+FW := $(SDK)/output/firmware
+flash-di:
+	@test -x "$(UT)" || { echo "❌ 找不到 upgrade_tool: $(UT)"; exit 1; }
+	@test -f "$(FW)/rootfs.img" || { echo "❌ 还没有 $(FW)/rootfs.img，先 make image"; exit 1; }
+	@echo "0) 确认设备在 MaskROM："
+	@"$(UT)" ld
+	@echo ""
+	@"$(UT)" db "$(LOADER)"
+	@echo ""
+	@echo "1) 选择存储 —— 输入 3（SD）"
+	@"$(UT)" ssd
+	@echo ""
+	@echo "2) 逐分区写入（不写 IDB，卡能启动就行）"
+	@"$(UT)" di -u "$(FW)/uboot.img"
+	@"$(UT)" di -b "$(FW)/boot.img"
+	@"$(UT)" di -s "$(FW)/rootfs.img"
+	@echo ""
+	@echo "3) 复位"
+	@"$(UT)" rd
