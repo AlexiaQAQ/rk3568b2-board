@@ -260,6 +260,42 @@ rk_gmac-dwmac fe010000.ethernet eth0: Cannot attach to PHY (error: -19)
 **原因：RTL8211F 的 25MHz 晶振尚未焊接**，PHY 无时钟故不应答。
 与设备树配置无关，焊上晶振后再验证 PHYAD 地址（`phy@0` / `phy@1`）。
 
+### 7.6 一次“看起来更糟”的启动失败：其实是 rootfs 日志损坏
+
+4-bit 复测失败后重新烧过一次 1-bit 镜像，串口里出现的是这样一串：
+
+```
+mmc1: new high speed SDXC card at address b36b
+mmcblk1: mmc1:b36b SDABC 58.2 GiB
+ mmcblk1: p1 p2 p3 p4 p5 p6 p7 p8        <- 8 个分区全部读到
+JBD2: Invalid checksum recovering data block 148 in log
+JBD2: Invalid checksum recovering data block 119 in log
+...（连续几十条）
+JBD2: recovery failed
+EXT4-fs (mmcblk1p6): error loading journal
+VFS: Cannot open root device "PARTUUID=614e0000-..." error -5
+Kernel panic - not syncing: VFS: Unable to mount root fs
+```
+
+要点：
+
+- 卡枚举、分区表、PARTUUID **全部正常**，没有任何 `I/O error` / `dw_mci_request_end` WARN
+  —— 说明此时 SD 链路是好的（1-bit@50MHz 生效了）。
+- 真正挂掉的是 **ext4 日志**：之前 4-bit 那几次 I/O 错误 + 非正常断电，
+  把 `mmcblk1p6` 的 journal 写坏了。日志回放校验不过 → `error loading journal`
+  → 内核找不到可挂载的根 → panic。
+- 所以这一版**不是** SD 硬件进一步恶化，而是上几次失败留下的文件系统后果。
+
+处理：
+
+| 做法 | 说明 |
+|---|---|
+| **重烧镜像（推荐）** | `update.img` 里是干净的 ext4，烧完即恢复 |
+| 临时救急 | bootargs 加 `rootflags=noload` 跳过日志回放，进系统后 `e2fsck -fy /dev/mmcblk1p6` |
+
+经验：调试 SD/存储问题时，**先分清是链路错误还是文件系统后果**。
+出现 `JBD2 ... recovery failed` 这类日志时不要再怀疑引脚，直接查文件系统/重烧。
+
 ## 8. 后续
 
 

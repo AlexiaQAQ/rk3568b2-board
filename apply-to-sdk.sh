@@ -41,6 +41,15 @@ else
 	echo "      已存在或非 git 仓库，跳过"
 fi
 
+echo "[3.6/5] 打开 CONFIG_DRM_IGNORE_IOTCL_PERMIT（SDK 打包脚本强制要求）"
+FRAG="$K/arch/arm64/configs/rk3568.config"
+if grep -q '^CONFIG_DRM_IGNORE_IOTCL_PERMIT=y' "$FRAG" 2>/dev/null; then
+	echo "      已存在，跳过"
+else
+	printf '\nCONFIG_DRM_IGNORE_IOTCL_PERMIT=y\n' >> "$FRAG"
+	echo "      已追加到 rk3568.config"
+fi
+
 echo "[4/5] 注册到 Makefile"
 if grep -q "$NAME.dtb" "$DTS_DIR/Makefile"; then
 	echo "      已存在，跳过"

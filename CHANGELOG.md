@@ -3,6 +3,30 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.3.1] - 2026-10-24
+
+**4-bit 复测失败回退到 1-bit，并修掉打包卡点**
+
+### 修正 0.3.0 的错误结论
+
+0.3.0 里写的“4-bit 补焊后正常”**不成立**。补焊后复测 4-bit：
+`dw_mci_request_end` WARN 72 次 + 11 次 `I/O error`，`mount` 失败。
+DAT1~DAT3 至少还有一条有问题，镜像统一改回 `bus-width = <1>`、`max-frequency = <50000000>`。
+
+### 一次被误判为“更糟”的启动失败
+
+日志里出现 `JBD2: recovery failed` / `EXT4-fs: error loading journal` / `VFS: Cannot open root device`，
+看起来比之前更严重，实际是**之前 4-bit 的 I/O 错误把 `mmcblk1p6` 的 ext4 journal 写坏了**：
+卡枚举、8 个分区、PARTUUID 全部正常，没有任何链路错误。重烧镜像即恢复。
+详见 `docs/porting-notes.md` 7.6。
+
+### 修复
+
+- `patch/0005-kernel-enable-drm-ignore-iotcl.patch`：打开 `CONFIG_DRM_IGNORE_IOTCL_PERMIT`，
+  否则 `device/rockchip/common/scripts/check-kernel.sh` 直接中止，`update.img` 根本打不出来
+- `apply-to-sdk.sh` 增加 3.6 步，幂等追加该配置到 `kernel/arch/arm64/configs/rk3568.config`
+  （该文件是每次构建都会重新套用的 fragment，直接改 `.config` 会在下次构建被覆盖）
+
 ## [0.3.0] - 2026-10-24
 
 **首次上板启动到用户态 shell**（`root@rk3568-buildroot:/#`）。
