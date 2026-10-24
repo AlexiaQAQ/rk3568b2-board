@@ -248,6 +248,18 @@ u-boot 能读 40MB 内核而内核读不了，是因为两者对总线位宽与�
 残余现象：改成 1-bit 后仍有少量 `dw_mci_request_end` WARN + 偶发重新初始化，
 但不产生数据错误，暂不阻塞使用（疑似卡检测或 VCC3V3_SD 供电瞬态）。
 
+### 7.5 以太网 PHY 未应答（硬件未焊完整）
+
+GMAC1 控制器正常起来，但 MDIO 上找不到 PHY：
+
+```
+mdio_bus stmmac-1: MDIO device at address 0 is missing
+rk_gmac-dwmac fe010000.ethernet eth0: Cannot attach to PHY (error: -19)
+```
+
+**原因：RTL8211F 的 25MHz 晶振尚未焊接**，PHY 无时钟故不应答。
+与设备树配置无关，焊上晶振后再验证 PHYAD 地址（`phy@0` / `phy@1`）。
+
 ## 8. 后续
 
 
