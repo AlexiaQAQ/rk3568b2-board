@@ -90,11 +90,10 @@
 	 *   WARNING at dw_mci_request_end (WARN_ON(host->cmd || host->data))
 	 * 说明高速模式下读写不稳（自制板走线/负载与 EVB 不同）。
 	 *
-	 * 先降到 50MHz、关闭 UHS-SDR104，保证系统稳定；
-	 * 后续如需提速，再逐步尝试 sdr50/sdr104 并做长时间读写测试。
+	 * 已补焊 SD 数据线，恢复 4-bit（EVB 默认 bus-width = <4>）复测；
+	 * 速度仍保持 50MHz、关闭 UHS-SDR104，先确认功能再谈提速。
 	 */
 	max-frequency = <50000000>;
-	bus-width = <1>;
 	/delete-property/ sd-uhs-sdr104;
 	status = "okay";
 };
