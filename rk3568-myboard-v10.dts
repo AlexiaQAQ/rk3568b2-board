@@ -90,10 +90,12 @@
 	 *   WARNING at dw_mci_request_end (WARN_ON(host->cmd || host->data))
 	 * 说明高速模式下读写不稳（自制板走线/负载与 EVB 不同）。
 	 *
-	 * 已补焊 SD 数据线，恢复 4-bit（EVB 默认 bus-width = <4>）复测；
-	 * 速度仍保持 50MHz、关闭 UHS-SDR104，先确认功能再谈提速。
+	 * 补焊后复测 4-bit 仍出现 I/O error 与 dw_mci_request_end WARN（72 次），
+	 * 判断 DAT1~DAT3 仍有问题，回退 1-bit 保证系统可用。
+	 * 彻底解决需逐条检查 SD 座到 SoC 的 DAT1/2/3 焊接与走线。
 	 */
 	max-frequency = <50000000>;
+	bus-width = <1>;		/* DAT1~3 仍不稳定，先用单线保证可用 */
 	/delete-property/ sd-uhs-sdr104;
 	status = "okay";
 };
