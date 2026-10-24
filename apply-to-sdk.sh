@@ -33,6 +33,14 @@ else
 	echo "      已存在或非 git 仓库，跳过"
 fi
 
+echo "[3.5/5] 打内核补丁（电源域失败不 panic）"
+K="$SDK/kernel-6.1"
+if [ -d "$K/.git" ] && grep -q 'panic("panic_on_set_idle' "$K/drivers/soc/rockchip/pm_domains.c" 2>/dev/null; then
+	(cd "$K" && git apply "$PORT/patch/0004-kernel-pm-domain-no-panic.patch") && echo "      已应用"
+else
+	echo "      已存在或非 git 仓库，跳过"
+fi
+
 echo "[4/5] 注册到 Makefile"
 if grep -q "$NAME.dtb" "$DTS_DIR/Makefile"; then
 	echo "      已存在，跳过"

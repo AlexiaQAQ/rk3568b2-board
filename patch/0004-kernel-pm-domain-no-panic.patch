@@ -1,0 +1,18 @@
+diff --git a/drivers/soc/rockchip/pm_domains.c b/drivers/soc/rockchip/pm_domains.c
+index 8f7e3455ba05..0b6282137d78 100644
+--- a/drivers/soc/rockchip/pm_domains.c
++++ b/drivers/soc/rockchip/pm_domains.c
+@@ -653,7 +653,12 @@ static int rockchip_pmu_set_idle_request(struct rockchip_pm_domain *pd,
+ 
+ 	return ret;
+ error:
+-	panic("panic_on_set_idle set ...\n");
++	/*
++	 * 原版这里是 panic()，只要某个电源域握手失败就无法启动，
++	 * 对首板调试极不友好。改为报错继续，让系统能进用户态后再定位。
++	 */
++	pr_err("%s: power domain '%s' failed (idle=%d), continue anyway\n",
++	       __func__, genpd->name, idle);
+ 	return ret;
+ }
+ 

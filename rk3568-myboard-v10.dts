@@ -29,58 +29,9 @@
 	compatible = "rockchip,rk3568-myboard-v10", "rockchip,rk3568";
 
 	/*
-	 * 内核命令行：参考设计（EVB）的 dts 里没有 /chosen，
-	 * 而本 SDK 的内核 CONFIG_CMDLINE 为空，若 u-boot 未能注入 bootargs，
-	 * 内核会既无 console 也无 root=，表现为 "Starting kernel ..." 之后无输出。
-	 *
-	 * - console/earlycon 走 UART2 (0xfe660000)，1500000 8N1
-	 * - root 用 PARTUUID 而不是 /dev/mmcblkXpY：SD 卡和 WiFi 的 SDIO 都注册成 mmc 设备，
-	 *   内核里谁先 probe 谁是 mmcblk0 并不确定，写死设备名容易挂错分区
-	 * - 若 u-boot 环境变量里有 bootargs，会覆盖这里
-	 */
-	chosen {
-		stdout-path = "serial2:1500000n8";
-		bootargs = "console=ttyS2,1500000n8 earlycon=uart8250,mmio32,0xfe660000,1500000n8 root=PARTUUID=614e0000-0000-4b53-8000-1d28000054a9 rootwait rw";
-	};
-
-	/*
 	 * 4GB LPDDR4X：/memory 由 u-boot 在启动时自动填充，不要在这里硬编码。
 	 * DDR 时序/容量由 rkbin 的 rk3568_ddr_1560MHz_v1.26.bin 负责。
 	 */
-
-	/*
-	 * 本板只从 DC 座供电（USB 口不供电）。
-	 * DC 座 -> SMBJ33A(TVS) -> TPS54540(5~42V 输入，输出 5V) -> VCC5V0_SYS
-	 *                        -> SY8113 -> VCC3V3_SYS
-	 *
-	 * 输入范围 5~24V（DC 座）。
-	 * SMBJ33A(33V 关断 TVS) 对 24V 上限留了约 1.4 倍余量，属正常保护设计。
-	 * TPS54540 本身耐压 42V，所以整板上限由 24V 输入规格决定。
-	 */
-	dc_in: dc-in {
-		compatible = "regulator-fixed";
-		regulator-name = "dc_in";
-		regulator-always-on;
-		regulator-boot-on;
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <24000000>;
-	};
-
-	/*
-	 * M.2 插槽（NVMe SSD）3.3V：SY8113 从 VCC5V0_SYS 降压，
-	 * 使能脚 4G_PWREN_H_GPIO0_C6。必须常开，否则硬盘不上电。
-	 */
-	vcc3v3_m2: vcc3v3-m2 {
-		compatible = "regulator-fixed";
-		regulator-name = "vcc3v3_m2";
-		regulator-always-on;
-		regulator-boot-on;
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		enable-active-high;
-		gpio = <&gpio0 RK_PC6 GPIO_ACTIVE_HIGH>;
-		vin-supply = <&vcc5v0_sys>;
-	};
 
 	/* 本板无 VGA，EVB 的 VGA 电源会去抢 GPIO0_D5，禁用 */
 	vcc3v3_vga: vcc3v3-vga {
@@ -93,62 +44,22 @@
 	};
 };
 
-/* 电源拓扑：DC 输入 -> 5V(TPS54540) -> 3.3V(SY8113) */
-&vcc5v0_sys {
-	vin-supply = <&dc_in>;
-};
-
-&vcc3v3_sys {
-	vin-supply = <&vcc5v0_sys>;
-};
-
-/* ==================== GPU ==================== */
-/*
- * 首板实测：GPU 电源域上电握手失败，内核直接 panic（该 panic 是硬编码的）：
- *   rockchip-pm-domain: failed to get ack on domain 'gpu', val=0x4e
- *   Kernel panic - not syncing: panic_on_set_idle set ...
- *
- * 先禁用 GPU 保证系统能进用户态（HDMI 显示由 VOP 负责，不依赖 Mali）。
- * 待确认 VDD_GPU(SW2) 实测电压后再排查根因。
- */
-&gpu {
-	status = "disabled";
-};
-
-/* ==================== 以太网：GMAC1 / RTL8211F ==================== */
-/*
- * 实测发现：GMAC0 的 TXD0/TXD1(GPIO2_B3/B4) 与 UART1(BT) 物理引脚冲突，
- * RGMII 数据线(GPIO2_A3~A6)又与 SDMMC1(WiFi SDIO) 冲突。
- * 说明本板以太网不在 GMAC0 上 —— 待确认是否使用 GMAC1。
- *
- * 暂时关闭，避免在内核日志里刷错误。
- */
+/* ==================== 以太网：只保留 GMAC0 / RTL8211F ==================== */
 &gmac0 {
-	status = "disabled";
-};
-
-&mdio0 {
-	status = "disabled";
-};
-
-/*
- * 原理图确认：RTL8211F 接在 GMAC1（m1 复用），信号名带 _M1：
- *   MDC/MDIO   -> GPIO4_B6/B7
- *   TXD0~3/TXEN/TXCLK -> GPIO4_A0~A6
- *   RXD0~3/RXCLK/RXDV -> GPIO4_A1/A2 + GPIO3_D6/D7
- *   PHY 复位    -> GMAC1_RSTN_GPIO3_B0（经 R172 0Ω 到 RESET#）
- *   PHY 中断    -> GMAC1_INT/PMEB_GPIO3_A7（暂不使用）
- *
- * EVB 的 gmac1 节点已经是 m1 引脚组、PHY 地址 0x0、延迟 0x4f/0x26，
- * 只需改复位脚并打开。
- */
-&gmac1 {
-	snps,reset-gpio = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
+	/* 保留 EVB 的 RGMII + RTL8211F 配置，核对这三项：
+	 *   snps,reset-gpio      = <&gpio2 RK_PD3 ...>   ← 你的 PHY RESET 脚
+	 *   tx_delay = <0x3c> / rx_delay = <0x2f>        ← 布线不同需要微调
+	 *   phy-handle 的 PHY 地址（RTL8211F 由 PHYAD strap 决定，常见 0x00/0x01）
+	 */
 	status = "okay";
+};
+
+&gmac1 {
+	status = "disabled";
 };
 
 &mdio1 {
-	status = "okay";
+	status = "disabled";
 };
 
 /* ==================== 存储：只有 SD 卡 ==================== */
@@ -369,23 +280,7 @@
 	status = "disabled";
 };
 
-/* ==================== PCIe：M.2 插槽（NVMe SSD） ==================== */
-/*
- * 原理图上 M.2 座只接了 PCIE20_* 一对 lane（PCIE20_TX/RX/REFCLK），
- * 对应的是 RK3568 的 PCIe 2.1 x1 控制器 pcie2x1（专用引脚，不走 combphy）。
- *
- * 注意：
- *   - PERST#/CLKREQ#/WAKE# 走 SoC 的专用 PCIE20_*_M1 引脚，经 22Ω 串阻直达座子，
- *     不是 GPIO，所以不需要 reset-gpios
- *   - 座子上的 USB3.1 差分对这版没有连接（打叉），只有 PCIe
- *   - 供电靠 vcc3v3_m2（见上，GPIO0_C6 使能）
- */
-&pcie2x1 {
-	num-lanes = <1>;
-	status = "okay";
-};
-
-/* 另外两路 PCIe 本板未使用 */
+/* ==================== 外部接口：不用 PCIe / SATA ==================== */
 &pcie3x2 {
 	status = "disabled";
 };
@@ -454,13 +349,8 @@
 	status = "disabled";
 };
 
-/* 音频：原理图确认有耳机座(HP_OUT_L/R) + MIC 电路，走 RK809 内置 codec */
+/* 板载 codec：本板未提音频，先关；若要用耳机/喇叭把这里改回 okay */
 &rk809_sound {
-	status = "okay";
-};
-
-/* EVB 的 PWM4 用于 LCD 背光，占用 GPIO0_C6 —— 与 M.2 的 3.3V 使能冲突 */
-&pwm4 {
 	status = "disabled";
 };
 
