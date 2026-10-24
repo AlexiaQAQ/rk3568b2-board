@@ -185,10 +185,31 @@
 	};
 };
 
+/*
+ * WL_REG_ON（GPIO2_B1）原本被两个独占驱动同时引用：
+ *   sdio_pwrseq.reset-gpios   (mmc-pwrseq-simple, gpiod 独占)
+ *   wireless_wlan.WIFI,poweren_gpio (rfkill-wlan, gpio_request 独占)
+ * 谁先 probe 谁拿到，另一个静默失败；本板该脚有下拉，无人驱动时保持低电平，
+ * 导致 AP6212 永远不上电、26MHz 不起振、SDIO 扫不到。
+ *
+ * 改由独立 always-on 稳压器统一驱动，两个驱动都不再持有该 GPIO。
+ */
+/ {
+	wl_reg_on: wl-reg-on {
+		compatible = "regulator-fixed";
+		regulator-name = "wl_reg_on";
+		regulator-always-on;
+		regulator-boot-on;
+		enable-active-high;
+		gpio = <&gpio2 RK_PB1 GPIO_ACTIVE_HIGH>;
+		vin-supply = <&vcc_1v8>;
+	};
+};
+
 &sdio_pwrseq {
 	pinctrl-names = "default";
 	pinctrl-0 = <&wifi_enable_h_myboard>;
-	reset-gpios = <&gpio2 RK_PB1 GPIO_ACTIVE_LOW>;
+	/delete-property/ reset-gpios;
 };
 
 &sdmmc1 {
@@ -215,7 +236,8 @@
 &wireless_wlan {
 	status = "okay";
 	wifi_chip_type = "ap6212";
-	WIFI,poweren_gpio = <&gpio2 RK_PB1 GPIO_ACTIVE_HIGH>;
+	/* WL_REG_ON 由 wl_reg_on 稳压器控制，这里不再重复申请同一个 GPIO */
+	/delete-property/ WIFI,poweren_gpio;
 	WIFI,host_wake_irq = <&gpio2 RK_PB2 GPIO_ACTIVE_HIGH>;	/* WL_HOST_WAKE */
 	pinctrl-names = "default";
 	pinctrl-0 = <&wifi_host_wake_irq_myboard>;
