@@ -129,17 +129,22 @@ distclean: clean
 
 # Rockchip 官方流程：MaskROM → db 下 boot → ssd 选存储 → uf 烧固件
 # 本板无 eMMC，ssd 时选 SD 卡
+# 不需要 sudo：/etc/udev/rules.d/99-rockchip-usb.rules 已把 VID 2207 设为 0666
 flash:
 	@test -f "$(IMAGE)" || { echo "❌ 还没有 $(IMAGE)，先 make image"; exit 1; }
 	@test -x "$(UT)"    || { echo "❌ 找不到 upgrade_tool: $(UT)"; exit 1; }
-	@echo "1) 确认设备进入 MaskROM（无启动介质时上电即自动进入）"
-	@sudo "$(UT)" ld
+	@echo "0) 当前连接的 rockusb 设备："
+	@"$(UT)" ld
 	@echo ""
-	@echo "2) 下载 boot（MaskROM 下必须先做这步才能通讯）"
-	@sudo "$(UT)" db "$(LOADER)"
+	@echo "   若上面的列表为 0，把板子断电 → USB OTG 接电脑 → 上电（无启动介质会自动进 MaskROM）"
+	@echo "   若 uread 权限报错，确认 udev 规则已加载："
+	@echo "     sudo udevadm control --reload-rules && sudo udevadm trigger"
 	@echo ""
-	@echo "3) 选择存储 —— 在列表里选 SD 卡（本板无 eMMC）"
-	@sudo "$(UT)" ssd
+	@echo "1) 下载 boot（MaskROM 下必须先做这步才能通讯）"
+	@"$(UT)" db "$(LOADER)"
 	@echo ""
-	@echo "4) 烧录固件"
-	@sudo "$(UT)" uf "$(IMAGE)"
+	@echo "2) 选择存储 —— 在列表里选 SD 卡（本板无 eMMC）"
+	@"$(UT)" ssd
+	@echo ""
+	@echo "3) 烧录固件（会擦掉 SD 上所有分区，rootfs 一并换成干净的 ext4）"
+	@"$(UT)" uf "$(IMAGE)"
