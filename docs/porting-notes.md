@@ -220,7 +220,36 @@ LPDDR4X 的三路供电（1.8/1.1/0.6V）都正确，DDR 侧无需软件干预�
 教训：原理图上的 `NC` / `Default:` 注释可能是从参考设计抄来的残留，
 涉及电源的关键判断应当直接问设计者或查 BOM，不要只看图注。
 
+### 7.4 SD 卡 4-bit 数据线问题（实测）
+
+首板在内核里读 SD 卡持续报错，表现为：
+
+```
+I/O error, dev mmcblk1, sector 492127 op 0x0:(READ)
+EXT4-fs error (device mmcblk1p6): Error while async write back metadata
+EXT4-fs error: Detected aborted journal
+WARNING: CPU: 0 ... dw_mci_request_end (WARN_ON(host->cmd || host->data))
+```
+
+同时总线速度在 375kHz 与 50MHz 之间反复跳（每次失败后重新初始化）。
+
+| 配置 | 结果 |
+|---|---|
+| 150MHz + SDR104（EVB 默认） | 大量 I/O 错误，文件系统损坏 |
+| 50MHz + 4-bit | 仍有 I/O 错误（扇区 0 都读失败） |
+| **50MHz + 1-bit** | **零 I/O 错误，正常启动** |
+
+**结论：DAT1/DAT2/DAT3 至少一条有硬件问题**（虚焊 / 短路 / 走线）。
+u-boot 能读 40MB 内核而内核读不了，是因为两者对总线位宽与时序的处理不同。
+
+临时规避：设备树里 `bus-width = <1>;`。
+根治：查 SD 座到 SoC 的 DAT1~DAT3 走线与焊接，修好后改回 `<4>` 提速。
+
+残余现象：改成 1-bit 后仍有少量 `dw_mci_request_end` WARN + 偶发重新初始化，
+但不产生数据错误，暂不阻塞使用（疑似卡检测或 VCC3V3_SD 供电瞬态）。
+
 ## 8. 后续
+
 
 - [ ] 补一份 u-boot 板级 dts
 - [ ] 按实际 SD 容量重算 `parameter-buildroot-fit.txt`
