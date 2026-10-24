@@ -94,6 +94,7 @@
 	 * 后续如需提速，再逐步尝试 sdr50/sdr104 并做长时间读写测试。
 	 */
 	max-frequency = <50000000>;
+	bus-width = <1>;
 	/delete-property/ sd-uhs-sdr104;
 	status = "okay";
 };
