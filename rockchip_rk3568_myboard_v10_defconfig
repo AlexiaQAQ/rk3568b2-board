@@ -1,2 +1,6 @@
 RK_KERNEL_DTS_NAME="rk3568-myboard-v10"
 RK_PARAMETER="parameter-buildroot-fit.txt"
+
+# 这颗 SD 卡对 CMD38(erase) 返回 ERASE_SEQ_ERROR，SDK 默认装的 S99fstrim
+# 会在启动末尾对每个挂载点跑 fstrim，直接把系统挂死，关掉
+RK_ROOTFS_FSTRIM=n
