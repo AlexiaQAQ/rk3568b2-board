@@ -44,27 +44,57 @@
 	};
 };
 
-/* ==================== 以太网：只保留 GMAC0 / RTL8211F ==================== */
+/* ==================== GPU / NPU：首板先禁用 ==================== */
+/*
+ * 实测：GPU 电源域上电握手失败（VDD_GPU 实测 0V），
+ * mali 驱动读 GPU 寄存器触发 synchronous external abort，系统挂死。
+ * 在 VDD_GPU 硬件问题解决前，禁用 GPU 与 NPU，保证系统能进用户态。
+ */
+&gpu {
+	status = "disabled";
+};
+
+&rknpu {
+	status = "disabled";
+};
+
+/* ==================== 以太网：GMAC1 / RTL8211F ==================== */
+/*
+ * 原理图确认 RTL8211F 接 GMAC1（m1 复用）：
+ *   MDC/MDIO -> GPIO4_B6/B7，TXD/RXD -> GPIO4_A0~A6 + GPIO3_D6/D7
+ *   PHY 复位 -> GMAC1_RSTN_GPIO3_B0
+ * GMAC0 的引脚被 SDMMC1(WiFi) 与 UART1(BT) 占用，必须关闭。
+ */
 &gmac0 {
-	/* 保留 EVB 的 RGMII + RTL8211F 配置，核对这三项：
-	 *   snps,reset-gpio      = <&gpio2 RK_PD3 ...>   ← 你的 PHY RESET 脚
-	 *   tx_delay = <0x3c> / rx_delay = <0x2f>        ← 布线不同需要微调
-	 *   phy-handle 的 PHY 地址（RTL8211F 由 PHYAD strap 决定，常见 0x00/0x01）
-	 */
-	status = "okay";
+	status = "disabled";
+};
+
+&mdio0 {
+	status = "disabled";
 };
 
 &gmac1 {
-	status = "disabled";
+	snps,reset-gpio = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
+	status = "okay";
 };
 
 &mdio1 {
-	status = "disabled";
+	status = "okay";
 };
 
 /* ==================== 存储：只有 SD 卡 ==================== */
 &sdmmc0 {
-	/* SD 启动；vmmc/vqmmc 与 EVB 一致（vcc3v3_sd / vccio_sd=LDO5） */
+	/*
+	 * 首板实测：SDR104(148.5MHz) 下出现
+	 *   EXT4-fs error ... Error while async write back metadata
+	 *   WARNING at dw_mci_request_end (WARN_ON(host->cmd || host->data))
+	 * 说明高速模式下读写不稳（自制板走线/负载与 EVB 不同）。
+	 *
+	 * 先降到 50MHz、关闭 UHS-SDR104，保证系统稳定；
+	 * 后续如需提速，再逐步尝试 sdr50/sdr104 并做长时间读写测试。
+	 */
+	max-frequency = <50000000>;
+	/delete-property/ sd-uhs-sdr104;
 	status = "okay";
 };
 
