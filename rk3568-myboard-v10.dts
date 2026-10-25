@@ -100,8 +100,18 @@
 	status = "okay";
 };
 
+/*
+ * eMMC：2026-10-25 贴片。
+ * 引脚与总线宽度沿用 EVB1 的 8-bit / non-removable 配置，这里只打开 status。
+ * 若只焊了 4 条 DAT（DAT0~DAT3），需要把 bus-width 改成 <4>，否则初始化会降速或失败。
+ */
 &sdhci {
-	status = "disabled";	/* 无 eMMC */
+	bus-width = <8>;
+	non-removable;
+	no-sd;
+	no-sdio;
+	max-frequency = <200000000>;
+	status = "okay";
 };
 
 &sfc {
