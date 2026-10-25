@@ -129,7 +129,11 @@
  *
  * 你的板子：
  *   VCCIO1 = LDO4  vccio_acodec 3.0V   → 与 EVB 相同
- *   VCCIO2 = VCCIO_FLASH，0Ω 短接 VCC_1V8 (1.8V) → 驱动不处理，无需配置
+ *   VCCIO2 = VCCIO_FLASH，0Ω 短接 VCC_1V8 (1.8V)
+ *           → 驱动 case 3 (vccio2) 是空实现，电压由 FLASH_VOL_SEL 引脚硬件决定，
+ *             本板该引脚接 VCC3V3_PMU（高电平）= 1.8V 模式，与供电一致，无需配置。
+ *             注意：/usr/bin/list-iodomain.sh 会打印 "vccio2_vsel: 3.3V"，那是 GRF 寄存器
+ *             的复位默认值（没人写过），不代表实际电平，可以忽略。
  *   VCCIO3 = LDO5  vccio_sd            → 与 EVB 相同
  *   VCCIO4 = VCCIO_WL，0Ω 短接 VCC_1V8 (1.8V) → EVB 是 3.3V，必须改
  *   VCCIO5 = VCC_3V3 (3.3V)            → 与 EVB 相同
