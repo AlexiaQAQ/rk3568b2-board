@@ -61,11 +61,26 @@ dmesg 里两条报错都是**无害噪声**：
   —— 6.1 分支先按名字取中断、失败后回退到按索引取，回退是成功的。
   本版已在设备树补 `interrupt-names = "npu_irq"` 消除（需烧入 12:01 之后的 boot.img）
 
-### GPU 待定
+### GPU：确认为硬件供电问题，保持禁用
 
-`regulator_summary` 显示 `vdd_gpu = 900mV` 且有 consumer，
-与之前"VDD_GPU 实测 0V"的结论矛盾，疑似当时测量时机不对（系统已挂死）。
-暂仍 `status = "disabled"`，待单独验证后再打开。
+2026-10-25 打开 `&gpu` 实测，日志给出定性结论：
+
+```
+rockchip-pm-domain: failed to get ack on domain 'gpu',
+                    target_idle = 0, target_ack = 0, val=0x4e
+rockchip_pmu_set_idle_request: power domain 'gpu' failed (idle=0), continue anyway
+mali fde60000.gpu: Kernel DDK version g25p0-00eac0
+Internal error: synchronous external abort: 0000000096000010
+pc : kbase_reg_get_gpu_id+0xc/0x40
+```
+
+**GPU 电源域上电握手拿不到 ack**，随后 kbase 第一次读 GPU 寄存器就总线 abort。
+
+注意 `regulator_summary` 里的 `vdd_gpu = 900mV` 只是**稳压器设定值**，
+不代表 SoC 侧真的收到电压；实测 VDD_GPU = 0V，与"电源域起不来"完全吻合。
+
+待查硬件：GPU buck 的**电感 / 反馈分压 / 使能脚**。
+供电恢复后把 `&gpu` 的 `status` 改回 `okay` 即可，其余沿用 EVB 配置。
 
 ## [0.3.1] - 2026-10-24
 

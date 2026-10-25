@@ -52,7 +52,23 @@
  * 供电疑似本来就正常（之前的 0V 可能是在系统挂死状态下量的），待单独验证再打开。
  */
 &gpu {
-	status = "disabled";	/* 见上：曾触发 kbase synchronous external abort，暂不打开 */
+	/*
+	 * 2026-10-25 重新验证后确认：这是硬件问题，不是配置问题。
+	 *
+	 *   rockchip-pm-domain: failed to get ack on domain 'gpu',
+	 *                       target_idle = 0, target_ack = 0, val=0x4e
+	 *   rockchip_pmu_set_idle_request: power domain 'gpu' failed (idle=0)
+	 *   Internal error: synchronous external abort
+	 *   pc : kbase_reg_get_gpu_id+0xc/0x40
+	 *
+	 * GPU 电源域上电握手拿不到 ack，随后 kbase 一读寄存器就总线 abort。
+	 * regulator_summary 里的 vdd_gpu = 900mV 只是稳压器设定值，
+	 * 实测 VDD_GPU 为 0V，说明这一路供电没有真正建立。
+	 *
+	 * 待查：GPU buck 的电感 / 反馈分压 / 使能脚是否焊好。
+	 * 供电恢复后把 status 改回 okay 即可，其余配置都是继承 EVB 的。
+	 */
+	status = "disabled";
 };
 
 &rknpu {
