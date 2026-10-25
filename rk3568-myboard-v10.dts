@@ -46,16 +46,30 @@
 
 /* ==================== GPU / NPU：首板先禁用 ==================== */
 /*
- * 实测：GPU 电源域上电握手失败（VDD_GPU 实测 0V），
- * mali 驱动读 GPU 寄存器触发 synchronous external abort，系统挂死。
- * 在 VDD_GPU 硬件问题解决前，禁用 GPU 与 NPU，保证系统能进用户态。
+ * GPU：mali 驱动读 GPU 寄存器曾触发 synchronous external abort，系统挂死，
+ * 当时测得 VDD_GPU = 0V，因此禁用。
+ * 但 eMMC 上板后 regulator_summary 显示 vdd_gpu = 900mV 且有 consumer，
+ * 供电疑似本来就正常（之前的 0V 可能是在系统挂死状态下量的），待单独验证再打开。
  */
 &gpu {
-	status = "disabled";
+	status = "disabled";	/* 见上：曾触发 kbase synchronous external abort，暂不打开 */
 };
 
 &rknpu {
-	status = "disabled";
+	/*
+	 * 2026-10-25 打开。判断依据：
+	 *   regulator_summary: vdd_npu 900mV、有 consumer
+	 *   kernel: CONFIG_ROCKCHIP_RKNPU=y（驱动本身就编进去了）
+	 * EVB dtsi 里 rknpu-supply = <&vdd_npu>、rknpu_mmu 也都是 okay，直接继承。
+	 *
+	 * interrupt-names 必须补：rk356x.dtsi 的 npu 节点只写了 interrupts，
+	 * 没有 interrupt-names。6.1 的驱动会先按名字取 "npu_irq"，取不到才回退到
+	 * 按索引取——回退是成功的，但 dmesg 里会留一条
+	 *   "error -ENXIO: IRQ npu_irq not found"
+	 * 补上名字这条警告就没了。
+	 */
+	interrupt-names = "npu_irq";
+	status = "okay";
 };
 
 /* ==================== 以太网：GMAC1 / RTL8211F ==================== */

@@ -296,11 +296,84 @@ Kernel panic - not syncing: VFS: Unable to mount root fs
 经验：调试 SD/存储问题时，**先分清是链路错误还是文件系统后果**。
 出现 `JBD2 ... recovery failed` 这类日志时不要再怀疑引脚，直接查文件系统/重烧。
 
+### 7.7 eMMC 贴片后：SD 烧录失败的真正原因是卡座
+
+2026-10-25 贴上 eMMC（SDINBDA4-64G）后，同样的 `upgrade_tool` 命令一次成功：
+
+```
+Prepare IDB Start
+Prepare IDB Success
+Download IDB Start
+Download IDB Success
+Download Firmware Success
+Upgrade firmware ok.
+```
+
+而在此之前，SD 上是三种不同的失败：
+
+| 命令 | 报错 |
+|---|---|
+| `uf`（整包） | `Download IDB Fail` |
+| `di -p`（写参数） | `Writing master gpt failed!` |
+| `wl 16384`（任意 LBA） | `Write LBA failed!` |
+
+全都在**写**阶段失败，读一直正常。当时怀疑过"我们自己编的 u-boot 的 MMC 写驱动坏了"，
+eMMC 一次通过就否掉了这个猜测——**问题在 SD 卡座那条链路**。
+
+结论：调试存储问题时，先用另一种介质交叉验证，比死磕一种通路快得多。
+
+### 7.8 IO 电源域脚本的 vccio2 是误报
+
+启动时 `/usr/bin/list-iodomain.sh` 会刷一屏红字，其中 `vccio2_vsel: 3.3V` 看着像配错了。
+实际是驱动空实现导致寄存器保持复位默认值：
+
+```c
+/* drivers/soc/rockchip/io-domain.c : rk3568_iodomain_write() */
+case 3: /* vccio2 */
+        break;
+```
+
+RK3568 的 VCCIO2 电压由 `FLASH_VOL_SEL` 引脚硬件决定：
+
+| VCCIO2 供电 | FLASH_VOL_SEL |
+|---|---|
+| 1.8V | 高 |
+| 3.3V | 低 |
+
+本板 VCCIO2 = VCC_1V8(1.8V)，FLASH_VOL_SEL = VCC3V3_PMU(高)，一致，无需改动。
+**这一行在 RK3568 上没有参考价值，不要被它带偏。**
+
+### 7.9 NPU 打开后的两条"错误"是噪声
+
+```
+RKNPU fde40000.npu: can't request region for resource [mem 0xfde40000-0xfde4ffff]
+RKNPU fde40000.npu: error -ENXIO: IRQ npu_irq not found
+```
+
+- 第一条：`rknpu_mmu` 在 `0xfde4b000`，落在 NPU 的 64KB 区段内。
+  驱动对 -EBUSY 有回退：
+  ```c
+  base = devm_ioremap_resource(dev, res);
+  if (PTR_ERR(base) == -EBUSY)
+          base = devm_ioremap(dev, res->start, resource_size(res));
+  ```
+- 第二条：6.1 分支先 `platform_get_irq_byname("npu_irq")`，失败后回退
+  `platform_get_irq(pdev, i)`。回退成功，驱动照常工作。
+  在设备树补 `interrupt-names = "npu_irq";` 可以消掉这条。
+
+判据不是这两条日志，而是：
+
+```
+NPU load: 0%     freq: 900000000
+/dev/dri/renderD128、renderD129
+```
+
 ## 8. 后续
 
 
 - [ ] 补一份 u-boot 板级 dts
+- [ ] GPU 供电复核后决定是否打开（weston 需要它）
 - [ ] 按实际 SD 容量重算 `parameter-buildroot-fit.txt`
-- [ ] 若 eMMC 已贴片，打开 `sdhci` 并调整启动顺序
+- [x] eMMC 已贴片（SDINBDA4-64G），`sdhci` 打开，从 eMMC 启动
 - [ ] M.2 插槽实测 NVMe 枚举（`lspci -nn`）
 - [ ] 硬件确认项见 [hardware.md](hardware.md) 第 6 节

@@ -3,6 +3,70 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.4.0] - 2026-10-25
+
+**eMMC 贴片 + 从 eMMC 启动 + GPU/NPU 供电澄清 + NPU 打开**
+
+### 硬件变更
+
+- 贴片 eMMC：**SDINBDA4-64G**（SanDisk iNAND，64GB，8-bit，VDDF=3.3V / VDD=1.8V）
+- 更换板子 UART2 的 RX 排母（此前串口只能收不能发）
+
+### eMMC
+
+| 项 | 结果 |
+|---|---|
+| 识别 | `mmc0:0001 DA4064 58.2 GiB`，含 boot0/boot1/rpmb |
+| 速率 | **HS200 / 200MHz / 8-bit / 1.8V** |
+| 错误计数 | Command/Data Timeout、CRC、Tuning 全部 **0** |
+| 分区 | rootfs 12G、userdata 46G（首次启动自动扩容） |
+| 烧录 | MaskROM + `upgrade_tool uf`，`Download IDB Success` 一次通过 |
+
+### 之前 SD 烧录全部失败的真正原因
+
+`Download IDB Fail` / `Writing master gpt failed` / `Write LBA failed` 这三个错误，
+只发生在 **SD 通路**；同样的代码在 eMMC 上一次成功。所以不是 u-boot 的 MMC 写驱动问题，
+而是 SD 卡座那条链路。**换 eMMC 后彻底绕开。**
+
+### IO 电源域澄清
+
+`list-iodomain.sh` 会打印 `vccio2_vsel: 3.3V` 并刷一屏红色警告，但那是**误报**：
+
+```c
+/* drivers/soc/rockchip/io-domain.c */
+case 3: /* vccio2 */
+        break;        /* 空实现，GRF 的 vsel 位永远是复位默认 0 */
+```
+
+RK3568 的 VCCIO2 电压由 **FLASH_VOL_SEL 引脚**硬件决定，不由寄存器控制。
+本板 VCCIO2 = 1.8V（0Ω 接 VCC_1V8），FLASH_VOL_SEL 接 VCC3V3_PMU（高电平）= 1.8V 模式，
+**配置正确**。
+
+### NPU
+
+`&rknpu` 打开后工作正常：
+
+```
+RKNPU fde40000.npu: rknpu iommu is enabled, using iommu mode
+[drm] Initialized rknpu 0.9.8 for fde40000.npu on minor 1
+NPU load: 0%    freq: 900000000
+/dev/dri/renderD128、renderD129
+```
+
+dmesg 里两条报错都是**无害噪声**：
+
+- `can't request region for resource [mem 0xfde40000-0xfde4ffff]`
+  —— `rknpu_mmu`(0xfde4b000) 落在 NPU 的 64KB 区段内，驱动遇到 -EBUSY 会回退到 `devm_ioremap`
+- `error -ENXIO: IRQ npu_irq not found`
+  —— 6.1 分支先按名字取中断、失败后回退到按索引取，回退是成功的。
+  本版已在设备树补 `interrupt-names = "npu_irq"` 消除（需烧入 12:01 之后的 boot.img）
+
+### GPU 待定
+
+`regulator_summary` 显示 `vdd_gpu = 900mV` 且有 consumer，
+与之前"VDD_GPU 实测 0V"的结论矛盾，疑似当时测量时机不对（系统已挂死）。
+暂仍 `status = "disabled"`，待单独验证后再打开。
+
 ## [0.3.1] - 2026-10-24
 
 **4-bit 复测失败回退到 1-bit，并修掉打包卡点**

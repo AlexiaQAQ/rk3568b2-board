@@ -173,3 +173,17 @@ VCCIO4 是 1.8V 这点同时决定 SDIO 的信号电平，因此 WiFi 可直接�
 - [ ] eMMC（U5）当前未贴片，未来可能贴；届时需打开 `sdhci`
 - [ ] M.2 插槽实测（`lspci` 能否枚举到 NVMe；PERST# 由专用引脚自动输出，无需 GPIO）
 - [ ] RTL8211F 的 PHYAD strap 与复位脚确认
+
+### eMMC（2026-10-25 贴片）
+
+| 项 | 值 |
+|---|---|
+| 型号 | SDINBDA4-64G（SanDisk iNAND，64GB） |
+| 总线 | 8-bit |
+| VDDF（NAND） | 3.3V |
+| VDD（I/O） | 1.8V |
+| 控制器 | `sdhci@fe310000`（DWCMHSC） |
+| 实测 | HS200 / 200MHz / 8-bit，错误计数全 0 |
+
+对应 IO 域是 **VCCIO2**（VCCIO_FLASH），板上 0Ω 短接 VCC_1V8。
+`FLASH_VOL_SEL` 必须为高电平（接 VCC3V3_PMU），与 1.8V 供电匹配。
