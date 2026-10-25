@@ -10,3 +10,6 @@ hardware/*.eprj
 *.swp
 *~
 .DS_Store
+
+# 串口原始日志（1.8MB，跑一次就变，不纳入版本管理）
+serial.log
