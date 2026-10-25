@@ -146,7 +146,7 @@ flash:
 	@echo "1) 下载 boot（MaskROM 下必须先做这步才能通讯）"
 	@"$(UT)" db "$(LOADER)"
 	@echo ""
-	@echo "2) 选择存储 —— 在下面的列表里输入 3（SD），本板没有 eMMC"
+	@echo "2) 选择存储 —— 输入 2（EMMC）；SD 备选输入 3"
 	@"$(UT)" ssd
 	@echo ""
 	@echo "3) 烧录固件（会擦掉 SD 上所有分区，rootfs 一并换成干净的 ext4）"
@@ -166,7 +166,7 @@ flash-di:
 	@echo ""
 	@"$(UT)" db "$(LOADER)"
 	@echo ""
-	@echo "1) 选择存储 —— 输入 3（SD）"
+	@echo "1) 选择存储 —— 输入 2（EMMC）"
 	@"$(UT)" ssd
 	@echo ""
 	@echo "2) 逐分区写入（不写 IDB，卡能启动就行）"
@@ -192,7 +192,7 @@ flash-wl:
 	@test -x "$(UT)" || { echo "❌ 找不到 upgrade_tool: $(UT)"; exit 1; }
 	@"$(UT)" ld
 	@"$(UT)" db "$(LOADER)"
-	@echo "选择存储 —— 输入 3（SD）"
+	@echo "选择存储 —— 输入 2（EMMC）"
 	@"$(UT)" ssd
 	@echo "按扇区直写（不碰 IDB / GPT）"
 	@"$(UT)" wl $(UBOOT_SEC)  "$(FW)/uboot.img"
