@@ -3,6 +3,43 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.6.0] - 2026-10-26
+
+**HDMI 点亮，GPU 验收通过（glmark2 Score 102 @1080p）**
+
+### HDMI 三个漏贴元件（现象完全相同）
+
+| 问题 | 现象 | 修复 |
+|---|---|---|
+| DDC/线材接触 | EDID 0 字节，`i2cdetect` 只见假应答 | 换线 / 检查接触 |
+| `HDMI_TX_AVDD_0V9` 缺 **1µH** 滤波电感 | 该轨只有 **0.7V** | 补电感，恢复 0.9V |
+| `HDMI_TX_REXT` 缺 **1.62kΩ** 基准电阻 | **TMDS 完全无输出** | 补 1.62kΩ ±1% 到地 |
+
+三个故障表现都是「显示器无信号」，而 VOP、DDC、HPD、驱动 probe 全程正常、日志无报错。
+
+判别要点：**「无信号」= TMDS 不在跑（查 PHY 供电/REXT）；「黑屏有背光」= TMDS 在跑，查 VOP 图层。**
+
+注意：量到 TMDS 引脚 3.3V 不能证明 PHY 工作——那是显示器端 50Ω 端接的上拉电压。
+
+### GPU 验收
+
+```
+glmark2-es2-drm @ 1920x1080
+  shading/pulsar/ideas   : 120~121 fps
+  effect2d (5x5 kernel)  : 38 fps
+  terrain                : 13 fps
+  shadow                 : 74 fps
+  glmark2 Score: 102
+```
+
+Mali-G52 2EE @1080p 全屏，属正常水平（重负载项是 terrain 和 5×5 卷积）。
+
+### 其它
+
+- 屏幕停在 Rockchip logo 属正常：无 compositor 接管，内核控制台在串口 ttyS2
+- `dw-hdmi: error -ENXIO: IRQ index 1 not found` 无害（CEC 唤醒中断，RK3568 无此线）
+- HDMI 驱动为老版 `dw-hdmi.c`（非 QP 变体），设备树 `rockchip,phy-table` 继承自 EVB
+
 ## [0.5.0] - 2026-10-26
 
 **换 SoC 后 GPU 复活；以太网通了；4GB 内存恢复**
