@@ -53,22 +53,20 @@
  */
 &gpu {
 	/*
-	 * 2026-10-25 重新验证后确认：这是硬件问题，不是配置问题。
+	 * 2026-10-26 换 SoC 后确认可用。
 	 *
-	 *   rockchip-pm-domain: failed to get ack on domain 'gpu',
-	 *                       target_idle = 0, target_ack = 0, val=0x4e
-	 *   rockchip_pmu_set_idle_request: power domain 'gpu' failed (idle=0)
-	 *   Internal error: synchronous external abort
-	 *   pc : kbase_reg_get_gpu_id+0xc/0x40
+	 * 前一版结论是「GPU 电源域起不来」（failed to get ack on domain 'gpu'，
+	 * 随后 kbase 读寄存器触发 synchronous external abort，VDD_GPU 实测 0.18V）。
+	 * 换掉那颗 RK3568 后，同一块板子、同一版固件：
 	 *
-	 * GPU 电源域上电握手拿不到 ack，随后 kbase 一读寄存器就总线 abort。
-	 * regulator_summary 里的 vdd_gpu = 900mV 只是稳压器设定值，
-	 * 实测 VDD_GPU 为 0V，说明这一路供电没有真正建立。
+	 *   mali fde60000.gpu: Register LUT 00070200 initialized for GPU arch 0x00070400
+	 *   mali fde60000.gpu: GPU identified as 0x2 arch 7.4.0 r1p0 status 0
+	 *   /dev/mali0 存在，devfreq 注册成功，频率 200~800MHz
 	 *
-	 * 待查：GPU buck 的电感 / 反馈分压 / 使能脚是否焊好。
-	 * 供电恢复后把 status 改回 okay 即可，其余配置都是继承 EVB 的。
+	 * 结论：**旧 SoC 的 GPU 电源域损坏**，不是板子供电或配置问题。
+	 * 其余属性（mali-supply、OPP、电源域）都继承 EVB1，不用改。
 	 */
-	status = "disabled";
+	status = "okay";
 };
 
 &rknpu {

@@ -3,6 +3,51 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.5.0] - 2026-10-26
+
+**换 SoC 后 GPU 复活；以太网通了；4GB 内存恢复**
+
+### 关键结论：旧 SoC 的 GPU 电源域损坏
+
+前一版把 GPU 归因为「板子供电问题」。换一片 RK3568 后，同一块板、同一版固件：
+
+```
+mali fde60000.gpu: Register LUT 00070200 initialized for GPU arch 0x00070400
+mali fde60000.gpu: GPU identified as 0x2 arch 7.4.0 r1p0 status 0
+/dev/mali0 存在，devfreq 200~800MHz
+```
+
+所以 `&gpu` 现在正式打开。之前的判断——`failed to get ack on domain 'gpu'`、
+`synchronous external abort`、VDD_GPU 只有 0.18V——是**旧 SoC 内部损坏**导致的，
+不是板级设计问题。
+
+### 硬件变更
+
+| 项 | 结果 |
+|---|---|
+| RK3568 | 换了一片（旧片 GPU 域损坏） |
+| 25MHz 晶振 | 焊上 → **RTL8211F 应答，以太网 PHY 正常** |
+| SoC 补焊 | DDR 从 2GB 恢复到 **4GB 双 rank** |
+
+### 新 SoC 的两点差异
+
+- **speed bin 2 → 1**：内核按 OTP 自动降档，暂时不用干预
+- **DDR 4GB 是间歇性的**：连续两次启动出现过 2GB / 4GB 各一次，
+  CS1 的球还在临界状态，容量不对时优先怀疑虚焊
+
+### 新增调试手段：/boot 下的 dtbo 覆盖层
+
+u-boot 支持从 rootfs 动态加载设备树覆盖层，改完重启即生效：
+
+```sh
+echo '...' | base64 -d > /boot/overlays/gpu-on.dtbo
+sed -i 's/^# overlays=leds-test.dtbo/overlays=gpu-on.dtbo/' /boot/ubootEnv.txt
+sync && reboot
+```
+
+**不用编译 boot.img、不用 MaskROM**。串口是唯一人机通道的情况下，这个非常关键。
+详见 `docs/porting-notes.md` 7.11。
+
 ## [0.4.0] - 2026-10-25
 
 **eMMC 贴片 + 从 eMMC 启动 + GPU/NPU 供电澄清 + NPU 打开**

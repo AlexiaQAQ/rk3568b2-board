@@ -368,6 +368,97 @@ NPU load: 0%     freq: 900000000
 /dev/dri/renderD128、renderD129
 ```
 
+### 7.10 换 SoC 之后：GPU 复活，内存变成间歇性 2GB
+
+前面 7.9 之后又走了一段弯路，根因是 **SoC 本身有问题**。
+
+#### 现象链
+
+| 阶段 | 现象 |
+|---|---|
+| 旧 SoC | GPU 电源域 `failed to get ack on domain 'gpu'`，kbase 读寄存器触发 `synchronous external abort` |
+| 旧 SoC | VDD_GPU 实测 **0.18V**（PMIC 侧 enabled、900mV、有 consumer，完全正常） |
+| 旧 SoC | 拆掉电感量 SW2 = 3.3V（buck 能满占空比输出），装上电感就被拉低 → **负载侧异常** |
+
+结论是 GPU 域被内部拉低。换一片 RK3568 后，同一块板、同一版固件：
+
+```
+mali fde60000.gpu: Register LUT 00070200 initialized for GPU arch 0x00070400
+mali fde60000.gpu: GPU identified as 0x2 arch 7.4.0 r1p0 status 0
+/dev/mali0 存在
+/sys/class/devfreq/fde60000.gpu  cur_freq=200MHz  available=800/700/600/400/300/200
+```
+
+**GPU 完全正常**（Mali-G52，arch 7.4.0）。所以之前的结论要更正：
+不是板子供电设计问题，是**旧 SoC 的 GPU 电源域损坏**。
+
+#### 新 SoC 带来的两个变化
+
+1. **speed bin 从 2 降到 1**（`idc=20 / pvtm=86650 / soc version=0, speed=1`）
+   内核会按 OTP 自动选低一档的 OPP 表，一般不用干预。
+2. **DDR 只认出 2GB、CS=1**（单 rank）
+
+第 2 点是补焊问题：给 SoC 重新加热后恢复 4GB：
+
+```
+ddrconfig:7
+CS0 Row=16 CS1 Row=16 CS=2  Size=4096MB
+DRAM: 4 GiB
+```
+
+但**同一台机器连续两次启动出现过一次 2GB、一次 4GB**，说明 CS1 那几个球还在临界状态，
+温度变化或振动后可能复发。遇到内存容量不对，先怀疑 CS1 虚焊。
+
+#### 顺带：25MHz 晶振焊上后以太网通了
+
+```
+eth0: PHY [stmmac-1:00] driver [RTL8211F Gigabit Ethernet] (irq=POLL)
+Read rgmii delayline from vendor: tx = 0x42, rx = 0x25
+```
+
+### 7.11 不烧录调试设备树：/boot 下的 dtbo 覆盖层
+
+Rockchip 的 u-boot 支持从 rootfs 动态加载设备树覆盖层，日志里能看到：
+
+```
+[TaishanPi] Dynamic Device Tree Overlay Loader
+  Using partition: rootfs (part 6)
+  Read 826 bytes from /boot/ubootEnv.txt
+```
+
+用法（改完重启即生效，**不用编译 boot.img、不用 MaskROM**）：
+
+```sh
+# 1. 放覆盖层
+mkdir -p /boot/overlays
+# gpu-on.dtbo 之类的文件放这里
+
+# 2. 在 /boot/ubootEnv.txt 里启用
+sed -i 's/^# overlays=leds-test.dtbo/overlays=gpu-on.dtbo/' /boot/ubootEnv.txt
+
+# 3. 重启
+sync && reboot
+```
+
+写 overlay 时**用 `target-path` 而不是 label 引用**，可以不依赖基座 DTB 的 `__symbols__`：
+
+```dts
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target-path = "/gpu@fde60000";
+		__overlay__ {
+			status = "okay";
+		};
+	};
+};
+```
+
+这对这块板子意义很大：串口是唯一的人机通道，烧录又要 MaskROM，
+用覆盖层可以几分钟试一个设备树改动。
+
 ## 8. 后续
 
 
