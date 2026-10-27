@@ -539,16 +539,19 @@ Output 'HDMI-A-1' enabled with head(s) HDMI-A-1
 
 `XDG_RUNTIME_DIR` 必须存在且权限 **0700**，否则会有警告（不致命但建议设对）。
 
-开机自启用最小脚本即可（原版 `buildroot/package/weston/S49weston` 有 57 行）：
+开机自启用最小脚本即可（原版 `buildroot/package/weston/S49weston` 有 57 行）。
+**注意 `XDG_RUNTIME_DIR` 必须显式设置**——init 脚本不会加载 `/etc/profile`，
+所以 `/etc/profile.d/xdg.sh` 里的设置不生效，不设这个变量 weston 会直接启动失败：
 
 ```sh
-cat > /etc/init.d/S49weston <<'EOF'
-#!/bin/sh
-export XDG_RUNTIME_DIR=/var/run
-/usr/bin/weston > /var/log/weston.log 2>&1 &
-EOF
+printf '#!/bin/sh\nexport XDG_RUNTIME_DIR=/var/run\n/usr/bin/weston > /var/log/weston.log 2>&1 &\n' \
+    > /etc/init.d/S49weston
 chmod +x /etc/init.d/S49weston
 ```
+
+（串口里用 `printf` 单行写文件比 heredoc 可靠，heredoc 容易被终端吞掉。）
+
+验证：重启后屏幕直接进桌面，`pgrep -a weston` 有进程，`/var/log/weston.log` 有 EGL/GL 初始化记录。
 
 SDK 里的 `buildroot/package/weston/S49weston` 会在重建 rootfs 时自动装回，
 所以这个脚本只是本次手动恢复用的临时手段。
