@@ -1,8 +1,11 @@
 # RK3568B2 自定义开发板 Linux 6.1 板级支持
 
 > 一块自制的 RK3568B2 开发板，基于 Rockchip Linux 6.1 SDK 的板级移植。
-> 当前状态：**端到端构建通过（kernel + u-boot + buildroot + update.img），
-硬件配置已按原理图核对，尚未上板实测**。
+> 当前状态：**已在实物上跑通并长期使用** —— 能进 Weston 桌面、GPU 硬件加速、
+> HDMI 1080p、以太网、NPU、键鼠输入全部正常；WiFi 因 SoC 焊接问题暂未通。
+
+> 首板调试过程踩了 9 个硬件坑（漏贴元件、虚焊、供电余量），全部记录在
+> [docs/bom-checklist.md](docs/bom-checklist.md)，想复刻的话**先看这份清单**。
 
 [English summary](#english-summary)
 
@@ -29,7 +32,7 @@
 | SoC | RK3568B2（FCCSP，最高 2.0GHz） |
 | 内存 | LPDDR4X 4GB x32（`RS1G32LO4D2BDS-53BT`，实跑 1560MHz） |
 | PMIC | RK809-5 @ I2C0 0x20 + TCS4525 @ I2C0 0x1c（VDD_CPU） |
-| 存储 | SD 卡启动；eMMC（U5）与 SPI Flash（U19）有焊接位 |
+| 存储 | **eMMC 64GB（SDINBDA4-64G，HS200 8bit）** 启动；SD 卡备用 |
 | 以太网 | 1x RTL8211F-CG（GMAC0 / RGMII） |
 | 无线 | AP6212：WiFi = SDMMC1，BT = UART1（m0 + 硬件流控） |
 | 显示 | HDMI |
@@ -39,6 +42,24 @@
 | 调试 | UART2 @ 1500000 |
 
 详细引脚与电源分配见 [docs/hardware.md](docs/hardware.md)。
+
+## 实测验证状态
+
+以下是**在实物上跑出来的结果**，不是"编译通过"：
+
+| 功能 | 状态 | 验证方式 |
+|---|---|---|
+| eMMC 启动 | ✅ | 4GB 双 rank，HS200 200MHz，`err_stats` 全 0 |
+| Weston 桌面 | ✅ | 开机自启，键鼠可操作 |
+| GPU（Mali-G52） | ✅ | `glmark2-es2-drm` @1080p **Score 102** |
+| HDMI | ✅ | 1080p60，EDID/热插拔正常，`dclk 148.5MHz` |
+| NPU | ✅ | rknpu v0.9.8，900MHz，`/dev/dri/renderD128` |
+| 以太网 | ✅ | RTL8211F 千兆，ping **0% 丢包** |
+| USB | ✅ | 开机自动供电，2.4G 键鼠正常（hub 需外接电源） |
+| WiFi/BT | ❌ | SDIO CMD5 超时：SoC 的 gpio2-3~9 球虚焊 |
+| M.2 / 摄像头 | — | 未使用，未验证 |
+
+调试过程与每个坑的排查方法见 [docs/porting-notes.md](docs/porting-notes.md)（13 个实战案例）。
 
 ## 快速开始
 
@@ -207,13 +228,27 @@ grep -rl myboard . | xargs sed -i 's/myboard/taishan/g'
 
 ## 已知问题 / TODO
 
-软件侧已验证到"能编译"为止，以下是**上板前需要人工确认**的项：
+### 硬件（下一版 PCB 要改的）
 
-- [ ] eMMC 未贴片（预留）；M.2 插槽待实测
-- [ ] **RTL8211F** 的 PHY 地址（PHYAD strap）与复位脚 GPIO2_PD3
-- [ ] **u-boot 仍使用 EVB 设备树**（`rk3568-evb`），必要时需单独建一份
-- [ ] **分区表**沿用 EVB 的 `parameter-buildroot-fit.txt`，偏移未按本板存储调整
-- [ ] LDO8（`vcca1v8_pmu`）同时供 DDR VDD1，需实测满载纹波
+- [ ] **USB VBUS 使能接错脚**：两个口都接到 GPIO0_A5，应有一个改到 GPIO0_A6
+- [ ] **USB VBUS 电容过大**：原设计两颗 100µF 钽电容，上电冲击会拖垮 5V，建议 22µF×2
+- [ ] **USB 负载开关无软启动**：建议 EN 加 RC 缓启动，或换带软启动的型号
+- [ ] **5V 输入通路载流能力**需评估（适配器规格、走线宽度、连接器额定值）
+- [ ] **SoC 焊接**：gpio2-3~9 一片球虚焊导致 WiFi 不通（需重新植球/回流）
+
+### 软件
+
+- [ ] WiFi 待 SoC 焊接修好后验证（驱动、固件、SDIO 枚举链路本身已确认正常）
+- [ ] M.2 NVMe 未实测
+- [ ] u-boot 仍用 EVB 设备树（`rk3568-evb`）
+- [ ] MAC 地址目前是随机生成的，正式产品应从 OTP 读取或固定
+
+### 已经解决、仅作记录
+
+- [x] eMMC 贴片并验证（HS200，4GB 双 rank）
+- [x] RTL8211F PHY 地址 = 0，25MHz 晶振已补焊
+- [x] HDMI 点亮（补齐 1µH 电感 + 1.62kΩ REXT）
+- [x] GPU 可用（换掉一颗 GPU 电源域损坏的 SoC）
 
 ## 许可与溯源
 
