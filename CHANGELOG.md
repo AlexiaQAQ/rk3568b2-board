@@ -3,6 +3,30 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.6.1] - 2026-10-27
+
+**以太网打通：RTL8211F 链路建立，ping 0% 丢包**
+
+### 两个硬件问题
+
+| 问题 | 现象 | 修复 |
+|---|---|---|
+| RTL8211F 缺 25MHz 晶振 | `MDIO device at address 0 is missing` | 补焊晶振，PHY 识别为 `stmmac-1:00` |
+| RJ45 座虚焊 | PHY 识别正常但 `carrier: 0`，无链路 | 补焊 RJ45，`carrier` 变 1 |
+
+> 网口 LED 不亮**不能**作为没链路的判据：集成变压器的 RJ45，LED 由 PHY 的
+> LED0/LED1 驱动，那两根线没接时灯永远不亮。判断链路看 `carrier`。
+
+### 验证
+
+直连 PC（无 DHCP，手配静态 IP）：
+
+```
+ping 192.168.1.100 → 3 packets transmitted, 3 received, 0% packet loss, avg 1.36ms
+```
+
+通了之后可直接 ssh/scp，调试不再依赖串口。
+
 ## [0.6.0] - 2026-10-26
 
 **HDMI 点亮，GPU 验收通过（glmark2 Score 102 @1080p）**

@@ -258,7 +258,39 @@ rk_gmac-dwmac fe010000.ethernet eth0: Cannot attach to PHY (error: -19)
 ```
 
 **原因：RTL8211F 的 25MHz 晶振尚未焊接**，PHY 无时钟故不应答。
-与设备树配置无关，焊上晶振后再验证 PHYAD 地址（`phy@0` / `phy@1`）。
+与设备树配置无关，焊上晶振后 PHY 立刻被识别（PHYAD = 0）：
+
+```
+eth0: PHY [stmmac-1:00] driver [RTL8211F Gigabit Ethernet] (irq=POLL)
+Read rgmii delayline from vendor: tx = 0x42, rx = 0x25
+```
+
+晶振焊上后 PHY 识别正常，但**链路仍然起不来**（`carrier: 0`，`operstate: down`，网口灯不亮）。
+补焊 RJ45 座之后 `carrier` 变成 1，链路建立。
+
+> 注意：网口 LED 不亮**不能**作为「没链路」的判据——很多集成变压器的 RJ45，
+> LED 由 PHY 的 LED0/LED1 引脚驱动，那两根线没接时灯永远不亮，但链路可以是好的。
+> 判断链路要看 `cat /sys/class/net/eth0/carrier`。
+
+#### 直连电脑的验证方法（无 DHCP）
+
+网线直连 PC 时没有 DHCP 服务器，`udhcpc` 会一直 `broadcasting discover`，这是正常的。
+两端手配静态 IP 即可：
+
+```sh
+# 板子
+ip addr add 192.168.1.100/24 dev eth0
+ip link set eth0 up
+
+# 电脑（Linux）
+sudo ip addr add 192.168.1.1/24 dev enp44s0
+
+# 验证
+ping -c3 192.168.1.100     # 电脑 → 板子
+```
+
+实测 `0% packet loss, rtt avg 1.3ms`。通了之后直接用 scp 传文件，
+调试完全不需要再经过串口。
 
 ### 7.6 一次“看起来更糟”的启动失败：其实是 rootfs 日志损坏
 
