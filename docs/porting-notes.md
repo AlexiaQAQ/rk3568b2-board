@@ -550,8 +550,8 @@ EOF
 chmod +x /etc/init.d/S49weston
 ```
 
-`SDK 里的 buildroot/package/weston/S49weston 会在重建 rootfs 时自动装回，所以这个脚本只是
-本次手动恢复用的临时手段。
+SDK 里的 `buildroot/package/weston/S49weston` 会在重建 rootfs 时自动装回，
+所以这个脚本只是本次手动恢复用的临时手段。
 
 #### 修复后的验证
 
