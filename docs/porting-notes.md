@@ -597,6 +597,70 @@ glmark2-es2-drm                              # glmark2 Score: 102 @ 1080p
 
 注意：屏幕停在 Rockchip logo 是**正常**的——没有 compositor 接管，控制台又在串口上。
 
+### 7.13 USB 口没电 & 一使能就掉电复位
+
+#### 症状一：USB3.0 Host（A 口）完全没 5V
+
+原理图笔误：**两个 USB 口的 VBUS 使能都接到了 GPIO0_A5**（复制粘贴忘了把其中一个改成 A6），
+GPIO0_A6 实际悬空。
+
+EVB 里这两个稳压器分工不同：
+
+| 稳压器 | GPIO | 默认行为 |
+|---|---|---|
+| `vcc5v0_host` | GPIO0_A6 | `always-on`，开机就有电 |
+| `vcc5v0_otg` | GPIO0_A5 | 不常开，只有 OTG 处于 host 模式才被 dwc3 拉起 |
+
+两个口都挂 A5，而 A5 平时是低的，所以 A 口永远没电。
+
+#### 症状二：一加 always-on 就无限重启（掉电复位）
+
+看起来像短路，但实测 **A 口 VBUS 对地 2MΩ**，Type-C 也没插东西。
+
+真正原因：**SY6280 输出后级挂了两颗 100µF 钽电容**。
+
+- 万用表量的是电容充满后的静态阻抗，看不出问题
+- EN 拉高的瞬间电容是空的，200µF 按 SY6280 的 2A 限流充电约需 0.5ms
+- 这 0.5ms 里输入侧要瞬时提供 2A，把 5V 主轨拉到 PMIC 的 UVLO 以下 → 掉电复位
+
+判断方法：看串口复位后**有没有重新做 DDR 训练**——有就是掉电复位，没有就是芯片复位。
+
+修复：拆掉其中一颗 100µF（剩 100µF，仍在 USB 主机口 120µF 规范内），复测正常。
+
+#### 安全的调试手法
+
+直接把 always-on 写进 DT 很危险——一旦掉电就是无限重启，连覆盖层都删不掉。
+调试阶段建议：
+
+```sh
+# 解绑稳压器驱动，释放 GPIO
+echo vcc5v0-otg-regulator > /sys/bus/platform/drivers/reg-fixed-voltage/unbind
+echo 5 > /sys/class/gpio/export          # GPIO0_A5 = 5
+echo out > /sys/class/gpio/gpio5/direction
+echo 1 > /sys/class/gpio/gpio5/value     # 拉高 → 若掉电，重启后自动恢复
+```
+
+这样即使触发掉电，重启后寄存器默认是关的，**不会锁死**。
+
+注意：`/sys/class/regulator/*/state` 是**只读**的，不能用来使能稳压器。
+
+#### 直接写 GPIO 寄存器为什么不行
+
+RK3568 的 GPIO 写数据要带写掩码（高 16 位），内核里的实现是：
+
+```c
+writel((val & 0xffff) | 0xffff0000, reg);
+```
+
+所以 `devmem 0xfdd60000 32 0x00200020` 这样写理论上只改 bit5。但实测读回不变，
+该脚可能还受其他逻辑控制，最终用 sysfs GPIO 才成功。
+
+#### 下一版 PCB 建议
+
+1. 其中一个口的 EN 改回 **GPIO0_A6**（`vcc5v0_host` 本来就 always-on，不用改软件）
+2. VBUS 电容改成 **22µF × 2**，或者换用带**软启动**的负载开关
+3. EN 脚加 RC 缓启动（如 100k + 1µF）
+
 ## 8. 后续
 
 

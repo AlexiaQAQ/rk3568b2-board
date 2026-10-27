@@ -402,22 +402,22 @@
  * 2026-10-27：原理图笔误——**两个 USB 口的 VBUS 使能都接到了 GPIO0_A5**
  * （画图时复制粘贴忘了改成 A6），GPIO0_A6 实际悬空。
  * EVB 里 vcc5v0_otg（GPIO0_A5）不是 always-on，只有 OTG host 模式才被拉起，
- * 所以 USB3.0 Host 那个 A 口平时没电。
+ * 所以 USB3.0 Host 那个 A 口平时没电。这里强制常开。
  *
- * 【暂时不要在这里加 always-on】
- * 试过一次（通过 /boot 的 dtbo 覆盖层），结果一开机就无限重启：
- * 覆盖层如果语法错误会被 u-boot 跳过，能重启说明它应用成功了、内核也起来了，
- * 那就是使能 GPIO0_A5 之后 5V 被短路/过载拖垮，导致复位循环。
+ * 【踩过的坑】一开始加 always-on 后一开机就无限重启，看起来像短路，实测 A 口
+ * VBUS 对地却有 2MΩ。真正原因是 **SY6280 输出后级挂了两颗 100µF 钽电容**：
+ * 万用表测的是充满电后的静态阻抗，看不出问题；但 EN 拉高的瞬间电容是空的，
+ * 200µF 按 2A 限流充电约 0.5ms，输入侧 5V 被这波冲击电流拉塌到 PMIC 的
+ * UVLO 以下，于是掉电复位（DDR 重新训练）。
  *
- * 所以先确认 USB 那路 5V 没有短路，再用运行时方式验证（不会导致无法开机）：
- *     for r in /sys/class/regulator/regulator.*; do
- *         [ "$(cat $r/name)" = vcc5v0_otg ] && echo enabled > $r/state
- *     done
- * 这样即使 5V 塌陷，重启后 regulator 默认是关的，不会循环。
- *
- * 确认硬件没问题后，再把 always-on 加回来（或下一版 PCB 把其中一个口的 EN
- * 改回 GPIO0_A6，vcc5v0_host 本来就是 always-on，接过去不用改软件）。
+ * 拆掉其中一颗 100µF（剩 100µF，仍在 USB 主机口 120µF 规范内）后复测正常。
+ * 下一版建议：VBUS 上 22µF×2 即可，或换带软启动的负载开关，EN 脚加 RC 缓启动。
  */
+
+&vcc5v0_otg {
+	regulator-always-on;
+	regulator-boot-on;
+};
 
 &usbdrd_dwc3 {
 	dr_mode = "otg";

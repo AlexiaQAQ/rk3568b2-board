@@ -3,6 +3,37 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.7.0] - 2026-10-27
+
+**USB 供电修复：根因是电容冲击电流，不是短路**
+
+### 两个问题
+
+| 现象 | 原因 | 修复 |
+|---|---|---|
+| USB3.0 Host（A 口）完全没 5V | 原理图笔误，两个口的 VBUS EN 都接到 GPIO0_A5；而 EVB 里 `vcc5v0_otg` 不常开 | DT 里加 `regulator-always-on` |
+| 一加 always-on 就无限重启（掉电复位） | SY6280 输出后级 **两颗 100µF 钽电容**，上电瞬间 200µF 冲击电流把 5V 拉到 UVLO 以下 | 拆掉一颗，剩 100µF（符合 USB 规范） |
+
+A 口 VBUS 对地实测 **2MΩ**——万用表看不出电容的冲击问题，这点很有迷惑性。
+
+### 调试手法
+
+调试阶段用 sysfs 手动拉高 GPIO0_A5，掉电重启后自动恢复、不会锁死：
+
+```sh
+echo vcc5v0-otg-regulator > /sys/bus/platform/drivers/reg-fixed-voltage/unbind
+echo 5 > /sys/class/gpio/export
+echo out > /sys/class/gpio/gpio5/direction
+echo 1 > /sys/class/gpio/gpio5/value
+```
+
+`/sys/class/regulator/*/state` 是只读的，不能用来使能。
+
+### 下一版 PCB
+
+- 其中一个口的 EN 改回 GPIO0_A6
+- VBUS 电容改 22µF×2，或换带软启动的负载开关
+
 ## [0.6.1] - 2026-10-27
 
 **以太网打通：RTL8211F 链路建立，ping 0% 丢包**
