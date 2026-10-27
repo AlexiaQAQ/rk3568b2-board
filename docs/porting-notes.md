@@ -516,6 +516,43 @@ RK3568 的 **HDMI 和 eDP 共用同一个 TX PHY**，其 0.9V 模拟电源在原
 
 要定性必须用示波器看有没有 148.5MHz 差分波形，或者直接查供电和 REXT。
 
+
+#### 桌面（Weston）启动
+
+```sh
+mkdir -p /tmp/weston && chmod 0700 /tmp/weston
+export XDG_RUNTIME_DIR=/tmp/weston
+weston --backend=drm &
+```
+
+跑起来后的关键日志：
+
+```
+EGL version: 1.5 Bifrost-"g24p0-00eac0"
+GL renderer: Mali-G52
+GL version: OpenGL ES 3.2
+Output 'HDMI-A-1' enabled with head(s) HDMI-A-1
+```
+
+**坑：不要加 `--tty=1`**。weston 14 用的是 *direct launcher*（日志里 `Trying direct launcher...`），
+它自己管理 DRM，会报 `fatal: unhandled option: --tty=1` 并退出。
+
+`XDG_RUNTIME_DIR` 必须存在且权限 **0700**，否则会有警告（不致命但建议设对）。
+
+开机自启用最小脚本即可（原版 `buildroot/package/weston/S49weston` 有 57 行）：
+
+```sh
+cat > /etc/init.d/S49weston <<'EOF'
+#!/bin/sh
+export XDG_RUNTIME_DIR=/var/run
+/usr/bin/weston > /var/log/weston.log 2>&1 &
+EOF
+chmod +x /etc/init.d/S49weston
+```
+
+`SDK 里的 buildroot/package/weston/S49weston 会在重建 rootfs 时自动装回，所以这个脚本只是
+本次手动恢复用的临时手段。
+
 #### 修复后的验证
 
 ```sh
