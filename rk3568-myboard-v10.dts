@@ -395,8 +395,27 @@
  * 你的板子：OTG 只走 USB2.0（D+/D-），不需要 SS 差分对
  *
  * 注意：vcc5v0_host / vcc5v0_otg 这两个 regulator 在 EVB 上分别占
- *       GPIO0_A6 / GPIO0_A5 做 VBUS 使能，务必按你的原理图改或删除。
+ *       GPIO0_A6 / GPIO0_A5 做 VBUS 使能。
  */
+
+/*
+ * 2026-10-27：原理图笔误——**两个 USB 口的 VBUS 使能都接到了 GPIO0_A5**
+ * （画图时复制粘贴忘了改成 A6），GPIO0_A6 实际悬空。
+ *
+ * EVB 里 vcc5v0_otg（GPIO0_A5）不是 always-on，只有 OTG 处于 host 模式时
+ * 才会被 dwc3 拉起，所以 USB3.0 Host 那个 A 口平时完全没电。
+ *
+ * 这里强制让它常开，两个口就都有 5V 了。
+ *
+ * 代价：Type-C 做 device 时 VBUS 也会一直在，会和主机灌过来的 VBUS 冲突，
+ * 长时间使用有风险。下一版 PCB 要把其中一个口的 EN 改回 GPIO0_A6
+ * （vcc5v0_host 本来就在 EVB 里配成 always-on），然后删掉这段覆盖。
+ */
+&vcc5v0_otg {
+	regulator-always-on;
+	regulator-boot-on;
+};
+
 &usbdrd_dwc3 {
 	dr_mode = "otg";
 	maximum-speed = "high-speed";	/* Type-C 只有 USB2.0，限制在 HS 更稳 */
