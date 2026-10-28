@@ -674,6 +674,91 @@ writel((val & 0xffff) | 0xffff0000, reg);
 2. VBUS 电容改成 **22µF × 2**，或者换用带**软启动**的负载开关
 3. EN 脚加 RC 缓启动（如 100k + 1µF）
 
+### 7.14 WiFi：SDIO 通了，但射频收不到任何信号
+
+#### 第一阶段：SDIO 完全枚举不到（已解决）
+
+现象：
+
+```
+mmc2: starting CMD5 arg 00000000
+mmc2: req failed (CMD5): -110, retrying...     ← 模组完全不应答
+mmc2: req done (CMD5): -110
+```
+
+软件侧逐个排除后确认都对：
+- SDMMC1 引脚复用正确（`pinmux-pins` 里 gpio2-3~8 都是 `sdmmc1-*` 功能）
+- `WL_REG_ON`（GPIO2_B1）为高
+- 三个稳压器全部使能
+
+最后发现是 **SoC 的 gpio2-3~9 一整片 BGA 球虚焊**——SD 卡用的 gpio2-0~2 正常，
+WiFi 用的 gpio2-3~9 全断，**连续引脚段整体失效**就是整片球没回流的特征。
+
+补焊 SoC 后 SDIO 立刻枚举成功：
+
+```
+mmc2: new high speed SDIO card at address 0001
+mmc2: Bus speed = 50000000Hz
+```
+
+> 另外 `WL_REG_ON` 当时是飞线接到 VDDIO 才拉高的（SoC 那一侧断了）。
+
+#### 第二阶段：射频收不到任何信号（未解决，判定为模组损坏）
+
+SDIO 通了之后，驱动和固件全部正常：
+
+```
+F1 signature OK, chip:0xa9a6 rev:0x0 pkg:0x3
+Firmware up: op_mode=0x0005, MAC=8c:f7:10:e5:ac:64
+CLM: 7.10.15
+Country code: CN (CN/0)
+wlan0 存在，1~11 信道，20dBm
+```
+
+但 `iw dev wlan0 scan` 恒为 **0 个 AP**（同一位置电脑能扫到 12 个，信号 60~100）。
+
+排查过程（全部无效）：
+
+| 尝试 | 结果 |
+|---|---|
+| a0 固件 + `nvram_ap6212.txt` | 0 AP |
+| a1 固件 + `nvram_ap6212a.txt` | 0 AP |
+| 直接导线接模组 RF 焊盘（3cm，免匹配） | 0 AP |
+| 检查 RF 网络对地电阻 | 开路，无短路 |
+| 改用带内中断（重编 bcmdhd 去掉 `-DOOB_INTR_ONLY`） | 0 AP |
+| 单信道定向扫描 `scan freq 2412` | 0 AP |
+
+**判断依据**：主机发起的每一次 SDIO 访问（下载固件、写 NVRAM、读寄存器、配信道）都成功，
+但芯片主动的数据（扫描结果）一条都没有。加上导线直连 RF 焊盘也无信号 → **模组 RF 前端损坏**。
+
+下一步应换一颗 AP6212 模组。
+
+#### 附带改动：bcmdhd 改用带内中断
+
+本板 `WL_HOST_WAKE`（GPIO2_B2，pin 74）紧邻虚焊的 gpio2-3~9，可靠性存疑。
+驱动默认编译时带 `-DOOB_INTR_ONLY`，一旦这根线断了主机就收不到任何异步事件。
+
+在 `drivers/net/wireless/rockchip_wlan/rkwifi/bcmdhd/Makefile` 里改成：
+
+```makefile
+CONFIG_BCMDHD_OOB := n      # 原来 := y，会走 -DSDIO_ISR_THREAD
+```
+
+重编后走 SDIO 带内中断，不再依赖那根 GPIO：
+
+```sh
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+     M=drivers/net/wireless/rockchip_wlan/rkwifi/bcmdhd modules
+```
+
+> `modprobe` 不可用（`/lib/modules/6.1.141` 目录不存在），要用
+> `insmod /lib/modules/bcmdhd.ko`。
+
+#### 以太网 10/100Mbps 的隐患
+
+调试期间链路频繁起落，多次只协商到 **10Mbps / 100Mbps**，从未上过千兆。
+千兆需要四对差分全通——只到百兆说明至少一对接触不良。换线或补焊 RJ45 可解。
+
 ## 8. 后续
 
 

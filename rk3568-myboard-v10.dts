@@ -282,7 +282,17 @@
 	wifi_chip_type = "ap6212";
 	/* WL_REG_ON 由 wl_reg_on 稳压器控制，这里不再重复申请同一个 GPIO */
 	/delete-property/ WIFI,poweren_gpio;
-	WIFI,host_wake_irq = <&gpio2 RK_PB2 GPIO_ACTIVE_HIGH>;	/* WL_HOST_WAKE */
+	/*
+	 * 2026-10-28：**临时移除 WL_HOST_WAKE**，验证 OOB 中断是否是 WiFi 收不到包的原因。
+	 *
+	 * WL_HOST_WAKE = GPIO2_B2 = pin 74，紧邻换 SoC 后虚焊的 gpio2-3~9（pin 67~73）。
+	 * bcmdhd 注册 HW_OOB 中断后会关掉 SDIO 的带内中断，一旦这根线断了，
+	 * 主机就再也收不到任何事件（扫描结果永远是空的）。
+	 *
+	 * 现象：芯片识别正常、固件下载成功、信道/国家码都对，但 iw scan 恒为 0 个 AP。
+	 * 若去掉本属性后扫描正常，说明 pin 74 确实没焊上，应补焊并恢复这一行。
+	 */
+	/delete-property/ WIFI,host_wake_irq;
 	pinctrl-names = "default";
 	pinctrl-0 = <&wifi_host_wake_irq_myboard>;
 };
