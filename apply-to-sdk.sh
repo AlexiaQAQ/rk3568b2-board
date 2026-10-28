@@ -50,6 +50,16 @@ else
 	echo "      已追加到 rk3568.config"
 fi
 
+echo "[3.7/5] bcmdhd 改用 SDIO 带内中断（不依赖 WL_HOST_WAKE）"
+BCM_MK="$K/drivers/net/wireless/rockchip_wlan/rkwifi/bcmdhd/Makefile"
+if grep -q '^CONFIG_BCMDHD_OOB := y' "$BCM_MK" 2>/dev/null; then
+	(cd "$K" && git apply "$PORT/patch/0006-bcmdhd-inband-irq.patch") 2>/dev/null \
+		|| sed -i 's/^CONFIG_BCMDHD_OOB := y/CONFIG_BCMDHD_OOB := n/' "$BCM_MK"
+	echo "      已改为 n（走 -DSDIO_ISR_THREAD）"
+else
+	echo "      已存在，跳过"
+fi
+
 echo "[4/5] 注册到 Makefile"
 if grep -q "$NAME.dtb" "$DTS_DIR/Makefile"; then
 	echo "      已存在，跳过"

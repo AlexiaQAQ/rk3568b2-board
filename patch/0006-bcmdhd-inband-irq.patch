@@ -1,0 +1,19 @@
+bcmdhd: 改用 SDIO 带内中断，不再依赖 WL_HOST_WAKE
+
+WL_HOST_WAKE 走 GPIO2_B2（pin 74），本板换 SoC 后 gpio2 那一片出现过整片
+BGA 虚焊，这根线的可靠性存疑。驱动默认编译时带 -DOOB_INTR_ONLY，一旦该脚
+断开，主机就收不到任何异步事件（扫描结果永远为空、数据收不到）。
+
+改成带内中断（SDIO DAT1），复用已经验证正常的 SDIO 总线。
+
+--- a/drivers/net/wireless/rockchip_wlan/rkwifi/bcmdhd/Makefile
++++ b/drivers/net/wireless/rockchip_wlan/rkwifi/bcmdhd/Makefile
+@@ -27,7 +27,7 @@
+ #CONFIG_BCMDHD_PCIE := y
+ #CONFIG_BCMDHD_USB := y
+ 
+-CONFIG_BCMDHD_OOB := y
++CONFIG_BCMDHD_OOB := n
+ #CONFIG_BCMDHD_CUSB := y
+ #CONFIG_BCMDHD_NO_POWER_OFF := y
+ CONFIG_BCMDHD_PROPTXSTATUS := y
