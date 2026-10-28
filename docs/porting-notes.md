@@ -733,6 +733,39 @@ wlan0 存在，1~11 信道，20dBm
 
 下一步应换一颗 AP6212 模组。
 
+
+#### 交叉验证：换主线 brcmfmac 驱动，结论不变
+
+为了排除「Rockchip bcmdhd（2024 驱动）+ 2018 固件的兼容性问题」，
+又用主线内核的 `brcmfmac` 驱动做了同样测试：
+
+```sh
+# 内核配置
+./scripts/config --module BRCMUTIL --module BRCMFMAC --enable BRCMFMAC_SDIO
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules
+
+# 板子上：brcmfmac 的固件命名规则
+mkdir -p /lib/firmware/brcm
+cp /lib/firmware/fw_bcm43438a1.bin   /lib/firmware/brcm/brcmfmac43430-sdio.bin
+cp /lib/firmware/nvram_ap6212a.txt   /lib/firmware/brcm/brcmfmac43430-sdio.txt
+insmod brcmutil.ko && insmod brcmfmac.ko
+```
+
+`brcmfmac` 正常识别并加载固件：
+
+```
+brcmfmac: using brcm/brcmfmac43430-sdio for chip BCM43430/1
+brcmfmac: Firmware: BCM43430/1 wl0: Jun 13 2018 version 7.45.96.24
+```
+
+但 `iw dev wlan0 scan` **依然是 0 个 AP**。
+
+至此：**两套完全独立的驱动（bcmdhd / brcmfmac）× 三颗模组（含别处验证正常的）
+= 全部 0 个 AP**，软件层面可以完全排除，问题在板子的 RF 物理通路。
+
+最可能：LGA 模组的 **ANT 引脚虚焊**——四周引脚吃上锡（SDIO 全通、固件能下载），
+唯独天线脚是空的。
+
 #### 附带改动：bcmdhd 改用带内中断
 
 本板 `WL_HOST_WAKE`（GPIO2_B2，pin 74）紧邻虚焊的 gpio2-3~9，可靠性存疑。
