@@ -787,10 +787,30 @@ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
 > `modprobe` 不可用（`/lib/modules/6.1.141` 目录不存在），要用
 > `insmod /lib/modules/bcmdhd.ko`。
 
-#### 以太网 10/100Mbps 的隐患
+#### 以太网：只到 10/100Mbps 且频繁掉线（已解决）
 
-调试期间链路频繁起落，多次只协商到 **10Mbps / 100Mbps**，从未上过千兆。
-千兆需要四对差分全通——只到百兆说明至少一对接触不良。换线或补焊 RJ45 可解。
+调试初期链路频繁起落，多次只协商到 **10Mbps / 100Mbps**，从未上过千兆：
+
+```
+RTL8211F: Downshift occurred from negotiated speed 1Gbps to actual speed 100Mbps, check cabling!
+eth0: Link is Up - 100Mbps/Full
+eth0: Link is Down
+```
+
+板子自己的日志就在喊 `check cabling`。千兆需要四对差分全通，只到百兆说明有一对接触不良。
+
+**最终确认是 RJ45 座接触问题**，重新处理连接器后：
+
+```
+eth0: Link is Up - 1Gbps/Full - flow control rx/tx
+/sys/class/net/eth0/speed = 1000, duplex = full
+```
+
+同类现象还有一个干扰项：PC 侧的网卡（Motorcomm YT8531S + `dwmac-motorcomm` 厂商驱动）
+也会出现「亮 1~4 秒就断」的假象，容易误判成板子问题。**双端排查**能省很多时间。
+
+> 吞吐实测：`ssh` 管道约 20MB/s（≈160Mbps），瓶颈在 A55 的 SSH 加密而非链路。
+> 要测真实带宽请用 `iperf3` / `nc`，不要用 scp 下结论。
 
 ## 8. 后续
 

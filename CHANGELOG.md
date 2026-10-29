@@ -3,6 +3,41 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.8.0] - 2026-10-29
+
+**以太网确认 1Gbps 全双工；WiFi 硬件通路问题定性**
+
+### 以太网
+
+之前多次只协商到 10/100Mbps 并频繁掉线，板子自己的日志就写着
+`Downshift ... check cabling`。重新处理 RJ45 连接器后恢复：
+
+```
+eth0: Link is Up - 1Gbps/Full - flow control rx/tx
+speed = 1000, duplex = full
+```
+
+排障时踩过一个坑：**PC 侧的 YT8531S 厂商驱动也会「亮几秒就断」**，
+一开始误判成板子问题。双端排查很重要。
+
+吞吐实测 `ssh` 管道约 20MB/s（≈160Mbps）——瓶颈是 A55 的 SSH 加密，
+不是链路本身。
+
+### WiFi
+
+用主线 `brcmfmac` 驱动做了交叉验证（内核开 `CONFIG_BRCMFMAC=m`，
+固件重命名为 `brcmfmac43430-sdio.bin/.txt`）：
+
+```
+brcmfmac: using brcm/brcmfmac43430-sdio for chip BCM43430/1
+brcmfmac: Firmware: BCM43430/1 wl0: Jun 13 2018 version 7.45.96.24
+```
+
+**依然是 0 个 AP。** 两套独立驱动 × 三颗模组（含别处验证正常的）= 全部失败，
+软件层面可以完全排除，问题锁定在板子的 RF 物理通路。
+
+待办：量「模组天线焊盘 ↔ 天线座中心针」通断，确认是走线断还是引脚虚焊。
+
 ## [0.7.0] - 2026-10-27
 
 **USB 供电修复：根因是电容冲击电流，不是短路**

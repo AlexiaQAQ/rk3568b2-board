@@ -54,9 +54,9 @@
 | GPU（Mali-G52） | ✅ | `glmark2-es2-drm` @1080p **Score 102** |
 | HDMI | ✅ | 1080p60，EDID/热插拔正常，`dclk 148.5MHz` |
 | NPU | ✅ | rknpu v0.9.8，900MHz，`/dev/dri/renderD128` |
-| 以太网 | ✅ | RTL8211F 千兆，ping **0% 丢包** |
+| 以太网 | ✅ | RTL8211F **1Gbps 全双工**，ping 0% 丢包 |
 | USB | ✅ | 开机自动供电，2.4G 键鼠正常（hub 需外接电源） |
-| WiFi/BT | ❌ | SDIO CMD5 超时：SoC 的 gpio2-3~9 球虚焊 |
+| WiFi/BT | ❌ | SDIO 已通（补焊 SoC 后），**射频通路** 仍扫不到 AP |
 | M.2 / 摄像头 | — | 未使用，未验证 |
 
 调试过程与每个坑的排查方法见 [docs/porting-notes.md](docs/porting-notes.md)（13 个实战案例）。
