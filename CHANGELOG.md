@@ -3,6 +3,39 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.8.4] - 2026-10-29
+
+**网络改为纯 DHCP**
+
+按要求去掉静态 IP，板子开机自动获取地址（`S41dhcpcd`，dhcpcd `-AL`）。
+
+实测（电脑侧跑 dnsmasq 提供 DHCP）：
+
+```
+inet 192.168.1.182/24 ... scope global dynamic noprefixroute eth0
+default via 192.168.1.1 dev eth0 proto dhcp src 192.168.1.182 metric 1002
+nameserver 223.5.5.5
+nameserver 119.29.29.29
+```
+
+IP / 网关 / DNS 全部自动获得，外网和 NTP 正常。
+
+### 镜像变化
+
+- **移除** `/etc/init.d/S41ethstatic`（不再设静态 IP）
+- 保留 `S37wifi`（WiFi 加载）、`S49weston`（桌面）
+
+### 注意
+
+直连电脑时链路上没有 DHCP 服务器，板子拿不到地址。文档里给了两个办法：
+电脑上跑 dnsmasq，或者临时手工设 IP。
+
+### 最终固件
+
+```
+update.img  960.7 MB  21:45  MD5 891129e4a8fe34f899c9de8c800febb0
+```
+
 ## [0.8.3] - 2026-10-29
 
 **时间同步 + 板子通外网；网络脚本改为 DHCP 优先**

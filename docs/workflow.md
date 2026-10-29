@@ -555,16 +555,66 @@ sudo ip addr flush dev enp44s0
 sudo ip addr add 192.168.1.1/24 dev enp44s0
 ```
 
-### 开机脚本
+### 网络：默认 DHCP
 
-`/etc/init.d/S41ethstatic` 采用**先 DHCP 后静态**的策略：
+镜像**不设静态 IP**，开机由 `S41dhcpcd`（dhcpcd `-AL`）自动获取 IP / 网关 / DNS。
+接路由器时开箱即用。
 
-1. 先等 8 秒，让 dhcpcd 尝试拿地址（接路由器时正常工作）
-2. 拿不到才退回 `192.168.1.100/24`，方便直连电脑调试
-3. 只有当 `192.168.1.1` 可达时才加默认路由，避免在别人的网络里乱加
-4. 没有 DNS 时补公共 DNS
+验证：
 
-这样同一个镜像既能接路由器用，也能直连电脑用。
+```sh
+ip -4 addr show eth0 | grep inet      # 应带 dynamic 标记
+ip route | head -2                    # 应有 default
+grep nameserver /etc/resolv.conf
+```
+
+### 直连电脑时怎么办
+
+板子和电脑网线直连时，链路上没有 DHCP 服务器，板子拿不到地址。
+两个办法：
+
+**A. 在电脑上起一个 DHCP 服务（推荐）**
+
+```bash
+cat > /tmp/dnsmasq-enp.conf <<'EOF'
+interface=enp44s0
+bind-interfaces
+dhcp-range=192.168.1.100,192.168.1.199,255.255.255.0,12h
+dhcp-option=3,192.168.1.1
+dhcp-option=6,223.5.5.5,119.29.29.29
+dhcp-leasefile=/tmp/dnsmasq-enp.leases
+log-dhcp
+EOF
+
+sudo nmcli device set enp44s0 managed no
+sudo ip addr add 192.168.1.1/24 dev enp44s0
+sudo dnsmasq -C /tmp/dnsmasq-enp.conf --pid-file=/tmp/dnsmasq-enp.pid
+
+# 板子的地址在租约文件里
+cat /tmp/dnsmasq-enp.leases
+```
+
+**B. 临时手工设 IP**
+
+```sh
+ip addr add 192.168.1.100/24 dev eth0
+ip route replace default via 192.168.1.1 dev eth0
+printf 'nameserver 223.5.5.5\n' > /etc/resolv.conf
+```
+
+### 电脑上网关地址的坑
+
+NetworkManager 会把 `enp44s0` 当 DHCP 客户端，把手工配的 `192.168.1.1` 冲掉。
+必须锁住：
+
+```bash
+sudo nmcli device set enp44s0 managed no
+sudo ip addr flush dev enp44s0
+sudo ip addr add 192.168.1.1/24 dev enp44s0
+```
+
+> 板子的 MAC 是**随机生成**的（每次开机可能不同），所以 DHCP 租约地址不固定。
+> 需要固定地址时应在设备树里写 `local-mac-address`，或在 dnsmasq 里按 MAC 绑定。
 
 ## 八、当前已知问题
 
