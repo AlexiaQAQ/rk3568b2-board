@@ -3,6 +3,35 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.8.5] - 2026-10-29
+
+**电脑侧网络共享脚本化 + 开机自启**
+
+新增 `/usr/local/sbin/board-nat.sh`（`up` / `down` / `status`）和配套的
+`board-nat.service`，把「电脑把网共享给板子」做成一条命令、开机自动生效：
+
+```bash
+board-nat.sh status
+LAN: enp44s0  地址: 192.168.1.1/24
+WAN: wlo1
+转发: 1
+NAT:  1 条
+DHCP: 运行中
+租约: 192.168.1.182 76:0f:50:da:4b:26
+```
+
+脚本做的事：
+
+1. 网卡锁成静态 `192.168.1.1`（`nmcli device set enp44s0 managed no`）
+2. 打开 `ip_forward`
+3. 加三条 iptables 规则（MASQUERADE + 双向 FORWARD），**幂等**
+4. 生成 dnsmasq 配置并启动 DHCP
+
+板子侧本来就是 DHCP，插上就能拿到地址，无需任何配置。
+
+> 校园网/企业网通常要求每台设备单独认证，所以没法把板子直接接到路由器——
+> 用电脑做 NAT 是这类环境里唯一可行的方案。
+
 ## [0.8.4] - 2026-10-29
 
 **网络改为纯 DHCP**

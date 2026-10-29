@@ -571,30 +571,89 @@ grep nameserver /etc/resolv.conf
 ### 直连电脑时怎么办
 
 板子和电脑网线直连时，链路上没有 DHCP 服务器，板子拿不到地址。
-两个办法：
+需要在电脑上起 DHCP 服务，最省事的是做成一个可复用的脚本 + 服务：
 
-**A. 在电脑上起一个 DHCP 服务（推荐）**
+**电脑上创建 `/usr/local/sbin/board-nat.sh`**（用 `board-nat.sh up|down|status` 管理）：
 
 ```bash
-cat > /tmp/dnsmasq-enp.conf <<'EOF'
-interface=enp44s0
+#!/bin/bash
+set -u
+LAN=enp44s0
+LAN_IP=192.168.1.1/24
+DHCP_CONF=/etc/dnsmasq.d/board-nat.conf
+PIDFILE=/run/board-nat-dnsmasq.pid
+LEASES=/var/lib/misc/board-nat.leases
+
+wan_if() { ip route | awk '/^default/{print $5; exit}'; }
+
+case "${1:-status}" in
+up)
+	WAN=$(wan_if); [ -z "$WAN" ] && { echo "找不到上网网卡"; exit 1; }
+	nmcli device set "$LAN" managed no 2>/dev/null || true
+	ip link set "$LAN" up
+	ip addr replace "$LAN_IP" dev "$LAN"
+	sysctl -qw net.ipv4.ip_forward=1
+	iptables -t nat -C POSTROUTING -o "$WAN" -j MASQUERADE 2>/dev/null || \
+		iptables -t nat -A POSTROUTING -o "$WAN" -j MASQUERADE
+	iptables -C FORWARD -i "$LAN" -o "$WAN" -j ACCEPT 2>/dev/null || \
+		iptables -A FORWARD -i "$LAN" -o "$WAN" -j ACCEPT
+	iptables -C FORWARD -i "$WAN" -o "$LAN" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
+		iptables -A FORWARD -i "$WAN" -o "$LAN" -m state --state RELATED,ESTABLISHED -j ACCEPT
+	mkdir -p /etc/dnsmasq.d /var/lib/misc
+	cat > "$DHCP_CONF" <<CONF
+interface=$LAN
 bind-interfaces
 dhcp-range=192.168.1.100,192.168.1.199,255.255.255.0,12h
 dhcp-option=3,192.168.1.1
 dhcp-option=6,223.5.5.5,119.29.29.29
-dhcp-leasefile=/tmp/dnsmasq-enp.leases
-log-dhcp
-EOF
-
-sudo nmcli device set enp44s0 managed no
-sudo ip addr add 192.168.1.1/24 dev enp44s0
-sudo dnsmasq -C /tmp/dnsmasq-enp.conf --pid-file=/tmp/dnsmasq-enp.pid
-
-# 板子的地址在租约文件里
-cat /tmp/dnsmasq-enp.leases
+dhcp-leasefile=$LEASES
+CONF
+	[ -f "$PIDFILE" ] && kill "$(cat "$PIDFILE")" 2>/dev/null
+	dnsmasq -C "$DHCP_CONF" --pid-file="$PIDFILE"
+	;;
+down)
+	[ -f "$PIDFILE" ] && kill "$(cat "$PIDFILE")" 2>/dev/null
+	WAN=$(wan_if)
+	iptables -t nat -D POSTROUTING -o "$WAN" -j MASQUERADE 2>/dev/null
+	iptables -D FORWARD -i "$LAN" -o "$WAN" -j ACCEPT 2>/dev/null
+	iptables -D FORWARD -i "$WAN" -o "$LAN" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null
+	;;
+status)
+	echo "LAN: $LAN $(ip -4 addr show "$LAN" 2>/dev/null | awk '/inet /{print $2}')"
+	echo "WAN: $(wan_if)"
+	echo "NAT: $(iptables -t nat -S POSTROUTING | grep -c MASQUERADE) 条"
+	echo "DHCP: $([ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null && echo 运行中 || echo 未运行)"
+	[ -f "$LEASES" ] && awk '{print "  租约 "$3" "$2}' "$LEASES"
+	;;
+esac
 ```
 
-**B. 临时手工设 IP**
+**做成开机自启**：
+
+```ini
+# /etc/systemd/system/board-nat.service
+[Unit]
+Description=Share internet to RK3568 dev board
+After=network-online.target NetworkManager.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/board-nat.sh up
+ExecStop=/usr/local/sbin/board-nat.sh down
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now board-nat.service
+board-nat.sh status          # 查看板子分到的地址
+```
+
+**B. 临时手工设 IP**（不想装服务时）
 
 ```sh
 ip addr add 192.168.1.100/24 dev eth0
