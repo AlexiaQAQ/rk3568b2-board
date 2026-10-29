@@ -3,6 +3,57 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.8.3] - 2026-10-29
+
+**时间同步 + 板子通外网；网络脚本改为 DHCP 优先**
+
+### 问题
+
+板子没有 RTC 备用电池，断电后时间回到 `2017-08-04`，浏览器/HTTPS 全部报错。
+而板子直连电脑时没有网关，NTP 也同步不了。
+
+### 解决
+
+电脑做 NAT，板子经电脑上网：
+
+```bash
+sudo sysctl -w net.ipv4.ip_forward=1
+sudo iptables -t nat -A POSTROUTING -o wlo1 -j MASQUERADE
+sudo iptables -A FORWARD -i enp44s0 -o wlo1 -j ACCEPT
+sudo iptables -A FORWARD -i wlo1 -o enp44s0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+```
+
+板子侧加默认路由 + DNS 后，`chrony` 自动同步成功：
+
+```
+Reference ID : 771CCEC1 (119.28.206.193)
+System time  : 0.000002365 seconds fast of NTP time
+```
+
+### 踩到的坑
+
+NetworkManager 把 `enp44s0` 当 DHCP 客户端，板子上的 dnsmasq 给它发了
+`192.168.1.91`，于是手工配的 `192.168.1.1` 被冲掉，默认路由指向 `.1` 后全断。
+必须 `nmcli device set enp44s0 managed no` 锁住。
+
+### `S41ethstatic` 改为 DHCP 优先
+
+同一个镜像要能给别人用（别人的网络有路由器），所以改成：
+
+1. 先等 8 秒让 dhcpcd 拿地址
+2. 拿不到才退回静态 `192.168.1.100/24`
+3. 只有 `192.168.1.1` 可达才加默认路由
+4. 没有 DNS 才补公共 DNS
+
+### 最终固件
+
+```
+update.img  960.7 MB  21:18  MD5 43af43b91273dc2bda81443dce472800
+```
+
+包含：`S37wifi`（WiFi 加载）、`S41ethstatic`（网络）、`S49weston`（桌面）、
+带内中断版 `bcmdhd.ko`。
+
 ## [0.8.2] - 2026-10-29
 
 **修复 WiFi 驱动加载链路；固件可直接分发**

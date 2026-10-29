@@ -505,6 +505,67 @@ echo 1 > /sys/class/gpio/gpio5/value     # 若掉电，重启后默认关闭，�
 
 ---
 
+## 七点五、时间与网络
+
+### 时间为什么会变成 2017 年
+
+板子**没有 RTC 备用电池**，断电后 RK809 的 RTC 不保存时间，每次上电回到出厂
+默认值 `2017-08-04`。浏览器、HTTPS、包管理器都会因为时间错误而报错。
+
+解决只能靠 NTP，而 NTP 需要外网。
+
+### 让板子通过电脑上网（NAT）
+
+板子和电脑直连时没有路由器，板子默认没有网关。让电脑做 NAT：
+
+```bash
+# 电脑上（wlo1 换成你实际上网的网卡）
+IFACE=$(ip route | awk '/^default/{print $5; exit}')
+sudo sysctl -w net.ipv4.ip_forward=1
+sudo iptables -t nat -A POSTROUTING -o $IFACE -j MASQUERADE
+sudo iptables -A FORWARD -i enp44s0 -o $IFACE -j ACCEPT
+sudo iptables -A FORWARD -i $IFACE -o enp44s0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+```
+
+板子上加默认路由（`192.168.1.1` = 电脑那端的地址）：
+
+```sh
+ip route replace default via 192.168.1.1 dev eth0
+printf 'nameserver 223.5.5.5\n' > /etc/resolv.conf
+```
+
+验证：
+
+```sh
+wget -q -O /dev/null http://www.baidu.com && echo ok
+chronyc sources          # 应看到 ^* 标记的源
+chronyc tracking
+```
+
+### ⚠️ 电脑那边的坑
+
+NetworkManager 会把 `enp44s0` 当 DHCP 客户端，把手工配的 `192.168.1.1` 冲掉
+（板子上的 dnsmasq 会发地址，电脑拿到 `192.168.1.91`，然后默认路由指向 `.1` 就全断了）。
+
+正确做法是**锁住**：
+
+```bash
+sudo nmcli device set enp44s0 managed no
+sudo ip addr flush dev enp44s0
+sudo ip addr add 192.168.1.1/24 dev enp44s0
+```
+
+### 开机脚本
+
+`/etc/init.d/S41ethstatic` 采用**先 DHCP 后静态**的策略：
+
+1. 先等 8 秒，让 dhcpcd 尝试拿地址（接路由器时正常工作）
+2. 拿不到才退回 `192.168.1.100/24`，方便直连电脑调试
+3. 只有当 `192.168.1.1` 可达时才加默认路由，避免在别人的网络里乱加
+4. 没有 DNS 时补公共 DNS
+
+这样同一个镜像既能接路由器用，也能直连电脑用。
+
 ## 八、当前已知问题
 
 | 问题 | 状态 | 下一步 |
