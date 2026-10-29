@@ -3,6 +3,55 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.8.2] - 2026-10-29
+
+**修复 WiFi 驱动加载链路；固件可直接分发**
+
+### 两个连环坑
+
+**1. 设备树与驱动不配套**
+
+之前为了测试带内中断，从设备树删掉了 `WIFI,host_wake_irq`；但重新烧写的 rootfs
+里是原始的 **OOB 版** `bcmdhd.ko`，它必须靠这个中断才能初始化：
+
+```
+[dhd] wifi_platform_bus_enumerate device present 0
+[dhd] _dhd_module_init: Exit err=-62
+```
+
+`err=-62`（ETIME）看着像超时，其实是 OOB 中断注册失败。
+
+修复：把带内版 `bcmdhd.ko`（`CONFIG_BCMDHD_OOB := n`）写进 rootfs 镜像。
+
+**2. 开机不自动加载**
+
+`/usr/bin/wifibt-init.sh` 里是 `insmod "$MODULE"`（相对路径），init 环境下找不到
+模块，而且**静默失败**——`lsmod` 和 `dmesg` 里都看不出异常。
+
+修复：新增 `/etc/init.d/S37wifi`，用绝对路径 `insmod /lib/modules/bcmdhd.ko`。
+
+### rootfs 镜像改动
+
+用 `debugfs` 直接写入（不需要 root、不需要挂载）：
+
+| 文件 | 作用 |
+|---|---|
+| `/etc/init.d/S49weston` | 桌面开机自启 |
+| `/etc/init.d/S37wifi` | WiFi 驱动加载（绝对路径） |
+| `/lib/modules/bcmdhd.ko` | 换成带内中断版（2.88 MB） |
+
+### 最终固件
+
+```
+boot.img     39.7 MB   MD5 fea26ec60d2ad5af156e20cc83f91c45
+rootfs.img  896.0 MB   MD5 a79fe0b75d40fb46b4c8f3b13b6d3bf0
+update.img  960.7 MB   MD5 9fb56e6ec72908863a1737a700ab221a
+```
+
+验证：开机后 `wlan0` 自动出现、`bcmdhd` 已加载。
+
+> WiFi 射频依旧扫不到 AP（硬件问题，见 0.8.1）。
+
 ## [0.8.1] - 2026-10-29
 
 **固件重编 + rootfs 加入桌面自启；文档补齐编译/烧录细节**

@@ -787,6 +787,61 @@ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
 > `modprobe` 不可用（`/lib/modules/6.1.141` 目录不存在），要用
 > `insmod /lib/modules/bcmdhd.ko`。
 
+#### ⚠️ 设备树与驱动必须配套
+
+这是一个很容易踩的连环坑：
+
+| 设备树 | 驱动 | 结果 |
+|---|---|---|
+| 有 `WIFI,host_wake_irq` | OOB 版（默认） | 正常 |
+| 有 `WIFI,host_wake_irq` | 带内版 | 正常 |
+| **没有** `WIFI,host_wake_irq` | **OOB 版** | **加载失败** |
+
+最后一种情况驱动日志：
+
+```
+[dhd] wifi_platform_bus_enumerate device present 0
+[dhd] _dhd_module_init: Failed to load the driver, try cnt 0
+[dhd] _dhd_module_init: Failed to load driver max retry reached**
+[dhd] _dhd_module_init: Exit err=-62
+```
+
+`err=-62`（ETIME）看起来像超时，实际是 **OOB 中断注册失败**——因为设备树里
+那个属性已经被 `/delete-property/` 删掉了。
+
+**结论**：删掉 `WIFI,host_wake_irq` 之后，rootfs 里的 `bcmdhd.ko` 必须换成
+带内中断版本（`CONFIG_BCMDHD_OOB := n`）。两者要同步改。
+
+#### ⚠️ 开机自动加载：insmod 用绝对路径
+
+`/etc/init.d/S36wifibt-init.sh` → `/usr/bin/wifibt-init.sh` 里是：
+
+```sh
+insmod "$MODULE"          # MODULE = "bcmdhd.ko"，没有路径
+```
+
+在 init 环境里工作目录不是 `/lib/modules`，所以**找不到模块**，而且失败是静默的
+（`lsmod` 里看不到，`dmesg` 里也没有任何 dhd 日志）。
+
+解决：加一个自己的启动脚本，用绝对路径：
+
+```sh
+#!/bin/sh
+case "$1" in
+start)
+	[ -d /sys/class/net/wlan0 ] && exit 0
+	[ -f /lib/modules/bcmdhd.ko ] || exit 0
+	insmod /lib/modules/bcmdhd.ko 2>/dev/null
+	sleep 2
+	[ -d /sys/class/net/wlan0 ] && ip link set wlan0 up 2>/dev/null
+	;;
+stop) ;;
+esac
+exit 0
+```
+
+存成 `/etc/init.d/S37wifi`，`chmod 755`。比 S36 晚一位，S36 失败后它能兜底。
+
 #### 以太网：只到 10/100Mbps 且频繁掉线（已解决）
 
 调试初期链路频繁起落，多次只协商到 **10Mbps / 100Mbps**，从未上过千兆：
