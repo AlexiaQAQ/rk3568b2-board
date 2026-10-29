@@ -3,6 +3,54 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.8.1] - 2026-10-29
+
+**固件重编 + rootfs 加入桌面自启；文档补齐编译/烧录细节**
+
+### 固件
+
+```
+output/firmware/boot.img     39.7 MB   10-29 20:30   MD5 fea26ec60d2ad5af...
+output/firmware/rootfs.img  896.0 MB   10-25 10:02   MD5 425df46541b3c5f5...
+output/firmware/update.img  960.7 MB   10-29 20:33   MD5 86e04963c7ac8b14...
+```
+
+DTB 校验：
+
+| 项 | 值 |
+|---|---|
+| GPU | `status = "okay"`，`mali-supply` 就绪 |
+| USB VBUS | `regulator-always-on` |
+| WL_HOST_WAKE | 属性已移除（走 SDIO 带内中断） |
+| eMMC | 8-bit / non-removable / 200MHz |
+
+### rootfs 新增桌面自启
+
+`S49weston` 之前是手工加到板子上，重烧就丢。这次用 `debugfs` 直接写进镜像：
+
+```bash
+IMG=~/rk3568-sdk/output/firmware/rootfs.img
+debugfs -w -R "write /tmp/S49weston /etc/init.d/S49weston" "$IMG"
+debugfs -w -R "sif /etc/init.d/S49weston mode 0100755" "$IMG"
+```
+
+这样分发 `update.img` 时开箱即用，烧完直接进桌面。
+
+### 文档
+
+`docs/workflow.md` 从 415 行扩到 **589 行**，补齐了：
+
+- `build.sh` 各子命令对照（产物 / 耗时）
+- 只改 dtb 的最小重编流程
+- 只重编单个内核模块（含 `M=` 不生效时的替代方案）
+- 改内核配置的正确位置（`build.sh` 会覆盖 `.config`）
+- 三种设备模式对照（MaskROM / Loader / 正常 Linux）
+- `upgrade_tool` 各命令含义、`ssd` 需要 tty 的坑
+- 完整分区偏移表（含十进制）
+- **8 条烧录报错对照表**（`ld: no input files`、`Download Firmware Fail` 等）
+- 用 `debugfs` 往 rootfs 镜像加文件
+- `boot.img` / `rootfs.img` / `update.img` 的更新时机差异
+
 ## [0.8.0] - 2026-10-29
 
 **以太网确认 1Gbps 全双工；WiFi 硬件通路问题定性**

@@ -63,94 +63,245 @@ cd ~/MyProject/board-port
 
 ## 三、编译
 
-### 3.1 常规方式
+### 3.1 build.sh 的子命令
+
+| 命令 | 产物 | 耗时 |
+|---|---|---|
+| `./build.sh kernel` | `boot.img`（内核 + dtb） | 首次约 10 分钟，改 dts 后约 2 分钟 |
+| `./build.sh uboot` | `uboot.img` / `trust.img` | 约 2 分钟 |
+| `./build.sh rootfs` | `rootfs.img` | 依赖 buildroot，**需联网** |
+| `./build.sh firmware` | 组装 `boot.img` / `rootfs.img` / `update.img` | 约 1 分钟 |
+| `./build.sh all` | 全部 | ⚠️ 见下方 |
+
+### 3.2 ⚠️ 不要跑 `./build.sh all`
+
+它会去 buildroot 下载源码包（`sources.buildroot.net`），断网环境必然失败，
+而且卡在最后一步，前面几十分钟全白等。
+
+正确做法：
 
 ```bash
-cd ~/rk3568-sdk
-export PATH="$HOME/.local/opt/sdk-deps/bin:$PATH"
-
-./build.sh kernel       # 内核 + dtb + boot.img
-./build.sh firmware     # 组装 boot.img / rootfs.img / update.img
+./build.sh kernel       # 先编内核
+./build.sh firmware     # 再组装固件
 ```
 
-### 3.2 用仓库的 Makefile
+### 3.3 用仓库的 Makefile
 
 ```bash
 cd ~/MyProject/board-port
 make kernel        # = ./build.sh kernel
 make firmware      # = ./build.sh firmware
 make image         # 组装 update.img
-make check         # 检查环境依赖
+make check         # 检查主机依赖
+make serial        # 串口终端
 ```
 
-### 3.3 ⚠️ 不要跑 `./build.sh all`
+### 3.4 只改设备树时
 
-它会去联网下载 buildroot 的源码包（`sources.buildroot.net`），断网环境必然失败，
-而且卡在最后一步，前面几十分钟全白等。
+改完 `rk3568-myboard-v10.dts` 后：
 
-正确做法：分开跑 `kernel` 和 `firmware`。
-
-### 3.4 产物
-
-```
-output/firmware/boot.img      39.7 MB   内核 + dtb
-output/firmware/rootfs.img    896 MB    rootfs
-output/firmware/update.img    ~960 MB   整包（含分区表）
+```bash
+cd ~/MyProject/board-port
+make install       # 把 dts 拷到 SDK 并注册
+cd ~/rk3568-sdk && ./build.sh kernel
 ```
 
----
+**不需要重编 buildroot**，几分钟就好。
+
+### 3.5 只重编某个内核模块
+
+```bash
+cd ~/rk3568-sdk/kernel-6.1
+export PATH="$HOME/.local/opt/sdk-deps/bin:$PATH"
+
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+     M=drivers/net/wireless/rockchip_wlan/rkwifi/bcmdhd modules
+```
+
+产物：`drivers/net/wireless/rockchip_wlan/rkwifi/bcmdhd/bcmdhd.ko`
+
+> `M=` 方式有时不生效（只跑 MODPOST 不编译）。可靠的做法是全量 `make modules`，
+> 虽然慢但不会漏。
+
+### 3.6 改内核配置
+
+```bash
+cd ~/rk3568-sdk/kernel-6.1
+./scripts/config --module BRCMFMAC --enable BRCMFMAC_SDIO
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
+./build.sh kernel        # 在 SDK 根目录执行
+```
+
+> ⚠️ `build.sh` 可能会用 defconfig 片段重新生成 `.config`，把手工改的选项覆盖掉。
+> 需要长期生效的配置应该写进 `rockchip_rk3568_myboard_v10_defconfig` 或
+> `arch/arm64/configs/rk3568.config`。
+
+### 3.7 产物对应关系
+
+| 文件 | 内容 | 什么时候变 |
+|---|---|---|
+| `output/firmware/boot.img` | 内核 + dtb | 每次 `build.sh kernel` |
+| `output/firmware/rootfs.img` | 根文件系统 | 只有 `build.sh rootfs` 才变 |
+| `output/firmware/update.img` | 整包（分区表 + 所有分区） | 每次 `build.sh firmware` |
+
+> ⚠️ **重要**：`build.sh kernel` 和 `build.sh firmware` **都不会重编 rootfs**。
+> 所以 `rootfs.img` 的时间戳可能停留在很久以前——这是正常的，但也意味着
+> rootfs 里的手动改动（新增脚本、改配置）不会自动进 `update.img`，
+> 需要用 4.8 节的 `debugfs` 手工写进去。
+
+### 3.8 编译常见错误
+
+| 报错 | 原因 |
+|---|---|
+| `Your python is missing` | 缺 `python-is-python3` |
+| `gawk: command not found` 或语法错 | 只装了 mawk，需要 `gawk` |
+| `Your network is not able to access sources.buildroot.net` | 跑了 `all`/`rootfs`，改跑 `kernel`+`firmware` |
+| `No rule to make target 'xxx.dtb'` | dts 没注册到 Makefile，重跑 `make install` |
+| `failed to parse loader memory` | 正常提示，不影响 |
 
 ## 四、烧录
 
-### 4.1 进入 MaskROM
-
-按住 **MASKROM 键** → 上电 → 松开。
-
-确认：
+### 4.1 准备 upgrade_tool
 
 ```bash
 UT=~/rk3568-sdk/tools/linux/Linux_Upgrade_Tool/Linux_Upgrade_Tool/upgrade_tool
-$UT ld        # 必须显示 Mode=Maskrom
 ```
 
-### 4.2 方式一：只烧某个分区（最常用）
-
-分区偏移（单位：512 字节扇区）：
-
-| 分区 | 起始扇区 | 典型大小 |
-|---|---|---|
-| uboot | 16384 | 4 MB |
-| boot | **32768** | 40 MB |
-| rootfs | **491520** | 896 MB |
+**每开一个新 shell 都要重新设置**（或者写进 `~/.bashrc`）：
 
 ```bash
+echo 'export UT=~/rk3568-sdk/tools/linux/Linux_Upgrade_Tool/Linux_Upgrade_Tool/upgrade_tool' >> ~/.bashrc
+```
+
+> ⚠️ 变量没设时 `$UT ld` 会变成系统的 `ld` 命令，报 **`ld: no input files`**。
+> 看到这个报错就是变量忘了设。
+
+### 4.2 非 root 用户访问 USB 设备
+
+```bash
+echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2207", MODE="0666", GROUP="plugdev"' | \
+  sudo tee /etc/udev/rules.d/99-rockchip-usb.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+### 4.3 三种设备模式
+
+| 模式 | 怎么进 | `lsusb` | 能用的命令 |
+|---|---|---|---|
+| **MaskROM** | 按住 MASKROM 键上电 | `2207:350a` | 全部 |
+| **Loader** | 系统里 `reboot loader` | `2207:350a` | 除 `db` 外都能用 |
+| **正常 Linux** | 默认启动 | `2207:0006` | **不能烧录** |
+
+`$UT ld` 必须显示 `Mode=Maskrom`（或 Loader）才能继续。
+
+> `db` 只能在 MaskROM 下用。Loader 模式执行会报
+> `The Device did not support this operation!`，跳过即可。
+
+### 4.4 命令详解
+
+| 命令 | 作用 |
+|---|---|
+| `ld` | 列出设备，确认当前模式 |
+| `db <loader.bin>` | 下载 loader（仅 MaskROM 需要） |
+| `ssd` | 选择存储介质（交互式，**必须有 tty**） |
+| `wl <扇区> <文件>` | 从指定扇区开始写文件 |
+| `uf <update.img>` | 烧写整包（含分区表） |
+| `di -p <parameter.txt>` | 下载分区表 |
+| `rd` | 重启设备 |
+
+> `ssd` 是交互式的，**管道输入不行**：`echo 2 | $UT ssd` 会报 `Switch Storage failed!`。
+> 必须在真实终端里手输 `2`；写脚本需要用 `pty.openpty()` 模拟 tty。
+
+### 4.5 三种烧录场景
+
+**A. 只更新内核**（最常用，不动 rootfs）
+
+```bash
+$UT ld
 $UT db ~/rk3568-sdk/u-boot/rk356x_spl_loader_v1.25.114.bin
-$UT ssd                          # 输入 2 = eMMC
-$UT wl 32768  ~/rk3568-sdk/output/firmware/boot.img
-$UT wl 491520 ~/rk3568-sdk/output/firmware/rootfs.img
+$UT ssd                    # 终端输入 2 = eMMC
+$UT wl 32768 ~/rk3568-sdk/output/firmware/boot.img
 $UT rd
 ```
 
-### 4.3 方式二：整包（会重写分区表）
+**B. 整包烧写**（给别人用的标准做法）
 
 ```bash
+$UT ld
 $UT uf ~/rk3568-sdk/output/firmware/update.img
+$UT rd
 ```
 
-### 4.4 方式三：Loader 模式（不用按键）
+整包会重写分区表 + 所有分区，**rootfs 里手工改过的内容全部丢失**。
 
-系统里执行 `reboot loader`，然后直接 `$UT wl ...`。
+**C. 只更新 rootfs**
 
-### 4.5 烧录的坑
+```bash
+$UT wl 491520 ~/rk3568-sdk/output/firmware/rootfs.img
+```
 
-| 现象 | 原因 |
+### 4.6 分区偏移表
+
+单位：512 字节扇区（来自 `parameter-buildroot-fit.txt`）。
+
+| 分区 | 十六进制 | 十进制 |
+|---|---|---|
+| uboot | 0x4000 | 16384 |
+| misc | 0x6000 | 24576 |
+| boot | 0x8000 | **32768** |
+| recovery | 0x28000 | 163840 |
+| backup | 0x68000 | 425984 |
+| rootfs | 0x78000 | **491520** |
+| oem | 0x1878000 | 25657344 |
+| userdata | 0x18b8000 | 25952256 |
+
+### 4.7 烧录常见错误
+
+| 报错 | 原因 | 解决 |
+|---|---|---|
+| `ld: no input files` | `$UT` 没设，跑的是系统 `ld` | 重新 export `UT` |
+| `No found any rockusb device` | 板子不在 MaskROM/Loader | 按 MASKROM 键上电，或 `reboot loader` |
+| `Download Firmware Fail` 卡在 2% | **USB 经过了 hub** | 直插主板后置口 |
+| `parameter is invalid,please check!` | 没先下分区表 | `$UT di -p parameter.txt` |
+| `The Device did not support this operation!` | Loader 模式下执行了 `db` | 跳过 `db` |
+| `Switch Storage failed!` | `ssd` 没有 tty | 在终端里手输 `2` |
+| `can't read flash id from device` | 板子不在烧录模式 | 同上 |
+| `Download IDB Fail` / `Writing master gpt failed!` | 存储介质问题 | eMMC 查焊接；SD 卡要**插到底** |
+
+### 4.8 往 rootfs 镜像里加文件（不用重新编译）
+
+`build.sh firmware` 只会重新打包**已存在**的 rootfs 镜像，不会重编 buildroot。
+想给镜像加文件时，可以用 `debugfs` 直接写（**不需要 root 权限、不需要挂载**）：
+
+```bash
+IMG=~/rk3568-sdk/output/firmware/rootfs.img     # 软链到 rootfs.ext2
+
+# 1. 准备文件
+cp ~/rk3568-sdk/buildroot/package/weston/S49weston /tmp/S49weston
+chmod 755 /tmp/S49weston
+
+# 2. 写入镜像
+debugfs -w -R "write /tmp/S49weston /etc/init.d/S49weston" "$IMG"
+debugfs -w -R "sif /etc/init.d/S49weston mode 0100755" "$IMG"
+
+# 3. 验证
+debugfs -R "ls -l /etc/init.d" "$IMG" | grep -i weston
+
+# 4. 重新打包 update.img
+cd ~/rk3568-sdk && ./build.sh firmware
+```
+
+`debugfs` 常用命令：
+
+| 命令 | 作用 |
 |---|---|
-| `Download Firmware Fail` 卡在 2% | **USB 经过了 hub**，必须直插主板后置口 |
-| `parameter is invalid,please check!` | `di` 之前要先 `di -p parameter.txt` |
-| `The Device did not support this operation!` | 在 Loader 模式下执行了 `db`，跳过即可 |
-| `No found any rockusb device` | 板子还在跑 Linux，需要先 `reboot loader` 或按 MASKROM |
+| `ls /path` | 列目录 |
+| `stat /path` | 看 inode/权限 |
+| `write <host> <img>` | 把宿主机文件写进镜像 |
+| `sif <img> mode 0100755` | 改权限（`sif` = set inode field） |
+| `rm /path` | 删除文件 |
 
----
+> 注意：`mode` 是八进制，普通可执行文件是 `0100755`，普通文件 `0100644`。
 
 ## 五、首次上电验证
 
@@ -387,29 +538,52 @@ CHANGELOG.md                          v0.1 ~ v0.8.0
 ## 十、命令速查
 
 ```bash
-# ---- 构建 ----
-./apply-to-sdk.sh                     # 装板级文件
-make kernel                           # 编内核
-make firmware                         # 组装固件
-make serial                           # 串口终端
+# ---- 一次性设置 ----
+export UT=~/rk3568-sdk/tools/linux/Linux_Upgrade_Tool/Linux_Upgrade_Tool/upgrade_tool
+export PATH="$HOME/.local/opt/sdk-deps/bin:$PATH"
 
-# ---- 烧录 ----
-$UT ld                                # 确认 MaskROM
-$UT wl 32768  boot.img                # 写 boot 分区
-$UT wl 491520 rootfs.img              # 写 rootfs 分区
+# ---- 构建 ----
+./apply-to-sdk.sh                     # 装板级文件到 SDK
+make check                            # 检查主机依赖
+make kernel                           # 编内核 + dtb → boot.img
+make firmware                         # 组装 update.img
+make serial                           # 串口终端（Ctrl+] 退出）
+
+# ---- 烧录（板子需在 MaskROM / Loader）----
+$UT ld                                # 确认模式，必须显示 Maskrom
+$UT db ~/rk3568-sdk/u-boot/rk356x_spl_loader_v1.25.114.bin
+$UT ssd                               # 终端输入 2 = eMMC
+$UT wl 32768  boot.img                # 只写 boot 分区
+$UT wl 491520 rootfs.img              # 只写 rootfs 分区
+$UT uf update.img                     # 整包烧写
 $UT rd                                # 重启
 
-# ---- 系统内 ----
+# ---- 修改 rootfs 镜像（不用重编）----
+IMG=~/rk3568-sdk/output/firmware/rootfs.img
+debugfs -w -R "write /tmp/f /etc/init.d/S49weston" "$IMG"
+debugfs -w -R "sif /etc/init.d/S49weston mode 0100755" "$IMG"
+debugfs -R "ls -l /etc/init.d" "$IMG"
+
+# ---- 板子上 ----
 reboot loader                         # 进烧录模式
 ip addr add 192.168.1.100/24 dev eth0
-cat /sys/class/drm/card0-HDMI-A-1/status
-cat /sys/class/net/eth0/speed
-modetest -M rockchip -s 177@74:1920x1080
-glmark2-es2-drm
+cat /sys/class/drm/card0-HDMI-A-1/status     # HDMI 连接状态
+cat /sys/class/net/eth0/speed                # 链路速率
+grep 'gpio-' /sys/kernel/debug/gpio          # GPIO 状态
+cat /sys/kernel/debug/regulator/regulator_summary
+modetest -M rockchip -s 177@74:1920x1080     # 点亮显示
+glmark2-es2-drm                              # GPU 跑分
 
-# ---- 调试 ----
+# ---- 驱动调试 ----
 echo 'file xxx.c +p' > /sys/kernel/debug/dynamic_debug/control
 dmesg -c > /dev/null
-grep 'gpio-' /sys/kernel/debug/gpio
-cat /sys/kernel/debug/regulator/regulator_summary
+dmesg
 ```
+
+### 时间戳速查
+
+| 疑问 | 命令 |
+|---|---|
+| 固件是什么时候编的 | `ls -lL ~/rk3568-sdk/output/firmware/*.img` |
+| 校验完整性 | `md5sum ~/rk3568-sdk/output/firmware/update.img` |
+| rootfs 里有没有某个文件 | `debugfs -R "ls -l /etc/init.d" "$IMG"` |
