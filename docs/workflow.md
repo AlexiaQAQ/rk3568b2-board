@@ -149,6 +149,51 @@ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
 > rootfs 里的手动改动（新增脚本、改配置）不会自动进 `update.img`，
 > 需要用 4.8 节的 `debugfs` 手工写进去。
 
+### 3.8 用国内镜像加速 buildroot
+
+`build.sh all` / `build.sh rootfs` 会从 `sources.buildroot.net` 下载所有软件包源码，
+国内网络经常超时。
+
+**这不是 SDK 镜像站**——`mirror.nju.edu.cn/buildroot/` 是 buildroot 的
+**软件包源码镜像**（相当于官方 `sources.buildroot.net` 的国内副本），
+里面只有 `busybox-1.37.0.tar.bz2` 这类包，**没有 Rockchip SDK 本身**。
+
+配置方法（改 SDK 里的文件）：
+
+```bash
+cd ~/rk3568-sdk/buildroot
+
+# 1. 改配置片段（以后重新生成 defconfig 也生效）
+sed -i 's|^BR2_PRIMARY_SITE=.*|BR2_PRIMARY_SITE="https://mirror.nju.edu.cn/buildroot/"|' \
+    configs/rockchip/base/common.config
+sed -i 's|^BR2_BACKUP_SITE=.*|BR2_BACKUP_SITE="https://sources.buildroot.net"|' \
+    configs/rockchip/base/common.config
+
+# 2. 同步到已经生成的 build 配置（立即生效）
+for f in output/*/*/.config; do
+    sed -i 's|^BR2_PRIMARY_SITE=.*|BR2_PRIMARY_SITE="https://mirror.nju.edu.cn/buildroot/"|' "$f"
+    sed -i 's|^BR2_BACKUP_SITE=.*|BR2_BACKUP_SITE="https://sources.buildroot.net"|' "$f"
+done
+```
+
+验证：
+
+```bash
+cd ~/rk3568-sdk/buildroot
+make busybox-source        # 应能看到从 mirror.nju.edu.cn 下载
+```
+
+> 保留 `BR2_BACKUP_SITE` 指向官方站——镜像个别新版本可能没同步
+> （实测 weston 14.0.2 就缺），会自动回落到官方。
+
+其他可用镜像：
+
+| 地址 | 说明 |
+|---|---|
+| `https://mirror.nju.edu.cn/buildroot/` | 南京大学，实测 ~1 MB/s |
+| `https://mirrors.tuna.tsinghua.edu.cn/buildroot/` | 清华（如可用）|
+| `https://mirrors.ustc.edu.cn/` | 中科大（GNU 包）|
+
 ### 3.8 编译常见错误
 
 | 报错 | 原因 |
