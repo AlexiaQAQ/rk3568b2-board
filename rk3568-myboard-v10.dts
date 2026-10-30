@@ -178,7 +178,15 @@
 	/* vccio2 驱动不处理，不写 */
 	vccio3-supply = <&vccio_sd>;		/* SD 卡 IO，1.8~3.3V 可切 */
 
-	vccio4-supply = <&vcc_1v8>;		/* ★ 本板 1.8V（EVB 是 3.3V） */
+	/*
+	 * VCCIO4 = WiFi/BT 的 IO 电源（VCCIO_WL 网络），和 AP6212 的 VDDIO 共用，
+	 * 板上用 0Ω 电阻在 1.8V / 3.3V 之间切换，**当前选 3.3V**。
+	 *
+	 * 注意：io-domain 驱动只区分 1.8V / 3.3V（写一个 bit）。配成 1.8V 而实际
+	 * 供 3.3V 会让 SoC 的 IO 单元过驱，长期有损坏风险、信号余量变差。
+	 * 如果以后把 0Ω 改回 1.8V，这里也要改回 <&vcc_1v8>。
+	 */
+	vccio4-supply = <&vcc_3v3>;		/* ★ 本板选 3.3V（EVB 也是 3.3V） */
 	vccio5-supply = <&vcc_3v3>;		/* 3.3V */
 	vccio6-supply = <&vcc_1v8>;		/* ★ 本板 1.8V（EVB 是 3.3V） */
 	vccio7-supply = <&vcc_3v3>;		/* 3.3V */
