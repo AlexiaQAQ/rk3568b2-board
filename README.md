@@ -19,6 +19,7 @@
 | `rockchip_rk3568_myboard_v10_defconfig` | SDK 板级配置（两行） |
 | `patch/` | 可直接 `git apply` 到 SDK 的补丁 |
 | `docs/hardware.md` | 硬件规格、电源树、IO 电压域、引脚分配 |
+| `docs/debian-image.md` | **Debian 桌面镜像**：切换、构建、两个必改的坑 |
 | `docs/workflow.md` | **完整流程**：环境准备 → 编译 → 烧录 → 验证 → 调试 → 排查方法论 |
 | `docs/porting-notes.md` | 移植思路、与 EVB 的差异、踩过的坑、验证记录 |
 | `hardware/README.md` | 硬件资料说明 + 原理图页面索引（**原理图/PCB 见立创开源平台**） |
