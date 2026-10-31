@@ -3,6 +3,35 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.9.5] - 2026-10-31
+
+**补充 u-boot 板级设备树**
+
+之前 u-boot 一直用 EVB 的设备树，串口日志里打印：
+
+```
+Model: Rockchip RK3568 Evaluation Board
+```
+
+新增 `uboot/rk3568-board.dts`（从 `rk3568-evb.dts` 派生）：
+
+- `model` / `compatible` 改成自己的板名
+- 去掉两个 GMAC（本板不通过网络启动，u-boot 里本来就是 disabled）
+- 保留 adc-keys / crypto / uart2
+
+`CONFIG_DEFAULT_DEVICE_TREE` 从 `rk3568-evb` 切到 `rk3568-board`，现在串口日志是：
+
+```
+Model: RK3568B2 Board V10
+```
+
+DDR 初始化由 rkbin 的 loader 负责，不在这个 dts 里。
+
+### 其他
+
+- `apply-to-sdk.sh` 加第 8 步安装 u-boot dts
+- `uninstall-from-sdk.sh` 对应回滚（改回 `rk3568-evb`）
+
 ## [0.9.4] - 2026-10-31
 
 **修正 USB 供电记录：两颗 100µF 是两个通路各一颗**

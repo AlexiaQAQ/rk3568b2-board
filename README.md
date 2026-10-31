@@ -21,6 +21,7 @@
 |---|---|
 | `rk3568-board-v10.dts` | 板级设备树，`#include` Rockchip EVB1 参考设计后做减法 |
 | `rockchip_rk3568_board_v10_defconfig` | SDK 板级配置 |
+| `uboot/rk3568-board.dts` | u-boot 板级设备树（串口日志里能认出板子）|
 | `apply-to-sdk.sh` | 一键把板级文件装进 SDK（含 6 个补丁） |
 | `Makefile` | `make kernel` / `firmware` / `flash` / `serial` 等 |
 | `docs/workflow.md` | **完整流程**：环境 → 编译 → 烧录 → 验证 → 调试 → 排查方法论 |

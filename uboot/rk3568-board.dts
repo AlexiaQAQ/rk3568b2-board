@@ -1,0 +1,49 @@
+/*
+ * SPDX-License-Identifier:     GPL-2.0+
+ *
+ * RK3568B2 自定义板 V10 —— u-boot 设备树
+ *
+ * 从 rk3568-evb.dts 派生。u-boot 阶段只需要：串口、存储、显示（开机 logo）、
+ * ADC 按键；DDR 初始化由 rkbin 的 loader 负责，不在这里配。
+ *
+ * 与 EVB 的差异：
+ *   - model / compatible 改成自己的板名，串口日志里能直接认出来
+ *   - 去掉两个 GMAC：本板不通过网络启动，u-boot 里本来就是 disabled
+ *   - 其余（adc-keys / crypto / uart2）与 EVB 一致，保持不动
+ *
+ * 注意：内核的设备树是 rk3568-board-v10.dts，和这里是两份独立的文件。
+ */
+
+/dts-v1/;
+#include "rk3568.dtsi"
+#include "rk3568-u-boot.dtsi"
+#include <dt-bindings/input/input.h>
+
+/ {
+	model = "RK3568B2 Board V10";
+	compatible = "rockchip,rk3568-board", "rockchip,rk3568";
+
+	adc-keys {
+		compatible = "adc-keys";
+		io-channels = <&saradc 0>;
+		io-channel-names = "buttons";
+		keyup-threshold-microvolt = <1800000>;
+		u-boot,dm-spl;
+		status = "okay";
+
+		volumeup-key {
+			u-boot,dm-spl;
+			linux,code = <KEY_VOLUMEUP>;
+			label = "volume up";
+			press-threshold-microvolt = <9>;
+		};
+	};
+};
+
+&crypto {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};

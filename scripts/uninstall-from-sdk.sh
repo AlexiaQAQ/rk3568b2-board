@@ -21,13 +21,13 @@ DTS_DIR="$SDK/kernel-6.1/arch/arm64/boot/dts/rockchip"
 NAME="rk3568-board-v10"
 DEFCONFIG="rockchip_rk3568_board_v10_defconfig"
 
-echo "[1/5] 删除设备树"
+echo "[1/6] 删除设备树"
 rm -fv "$DTS_DIR/$NAME.dts" "$DTS_DIR/$NAME.dtb"
 
-echo "[2/5] 删除 defconfig"
+echo "[2/6] 删除 defconfig"
 rm -fv "$CHIP_DIR/$DEFCONFIG"
 
-echo "[3/5] 从 dts Makefile 移除注册行"
+echo "[3/6] 从 dts Makefile 移除注册行"
 if [ -f "$DTS_DIR/Makefile" ] && grep -q "$NAME.dtb" "$DTS_DIR/Makefile"; then
 	sed -i "/$NAME.dtb/d" "$DTS_DIR/Makefile"
 	echo "      已移除 $NAME.dtb"
@@ -35,7 +35,16 @@ else
 	echo "      无需处理"
 fi
 
-echo "[4/5] 恢复 bcmdhd 的 OOB 中断配置"
+echo "[4/6] 移除 u-boot 板级设备树"
+UB_DTS="$SDK/u-boot/arch/arm/dts/rk3568-board.dts"
+UB_CFG="$SDK/u-boot/configs/rk3568_defconfig"
+rm -fv "$UB_DTS"
+if [ -f "$UB_CFG" ] && grep -q '^CONFIG_DEFAULT_DEVICE_TREE="rk3568-board"' "$UB_CFG"; then
+	sed -i 's|^CONFIG_DEFAULT_DEVICE_TREE="rk3568-board"|CONFIG_DEFAULT_DEVICE_TREE="rk3568-evb"|' "$UB_CFG"
+	echo "      已改回 rk3568-evb"
+fi
+
+echo "[5/6] 恢复 bcmdhd 的 OOB 中断配置"
 BCM_MK="$SDK/kernel-6.1/drivers/net/wireless/rockchip_wlan/rkwifi/bcmdhd/Makefile"
 if [ -f "$BCM_MK" ] && grep -q '^CONFIG_BCMDHD_OOB := n' "$BCM_MK"; then
 	sed -i 's/^CONFIG_BCMDHD_OOB := n/CONFIG_BCMDHD_OOB := y/' "$BCM_MK"
@@ -44,9 +53,9 @@ else
 	echo "      无需处理"
 fi
 
-echo "[5/5] 提示"
+echo "[6/6] 提示"
 cat <<'TIP'
-      以下是 patch 打进去、但本脚本不自动回滚的内容（按需手动处理）：
+      以下是 apply-to-sdk.sh 加进去、但本脚本不自动回滚的内容（按需手动处理）：
         - u-boot 的默认 bootargs
         - 内核电源域不 panic
         - kernel .config 里的 CONFIG_DRM_IGNORE_IOTCL_PERMIT

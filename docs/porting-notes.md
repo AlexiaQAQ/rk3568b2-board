@@ -952,12 +952,12 @@ eth0: Link is Up - 1Gbps/Full - flow control rx/tx
 - [x] USB（VBUS 电容 47µF，hub 无需外接电源）
 - [x] 3.5mm 耳机 + MIC
 - [x] Debian 12 桌面镜像
+- [x] u-boot 板级设备树（`uboot/rk3568-board.dts`）
 
 还没做的：
 
 - [ ] **WiFi 接收灵敏度**——能发不能收，需频谱仪进一步定位
 - [ ] M.2 插槽实测 NVMe 枚举（`lspci -nn`）
-- [ ] 补一份 u-boot 板级 dts（目前 u-boot 仍用 EVB 的）
 - [ ] MAC 地址固定（目前随机生成，正式产品应从 OTP 读）
 
 硬件确认项见 [hardware.md](hardware.md) 第 6 节。
