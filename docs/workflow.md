@@ -52,7 +52,7 @@ cd ~/MyProject/board-port
 | 步骤 | 内容 |
 |---|---|
 | 1 | 拷贝 `rk3568-board-v10.dts` 到 `kernel-6.1/arch/arm64/boot/dts/rockchip/` |
-| 2 | 应用 `patch/0001~0006` |
+| 2 | 修改 u-boot / 内核（bootargs、电源域不 panic、DRM 配置、bcmdhd 带内中断）|
 | 3 | 注册 dtb 到 Makefile、追加 defconfig 片段 |
 | 4 | 安装板级 buildroot 配置 |
 | 5 | 修补 u-boot 的默认 bootargs |
@@ -884,7 +884,6 @@ rk3568-board-v10.dts                板级 DTS（唯一需要改的文件）
 rockchip_rk3568_board_v10_defconfig 板级配置
 Makefile                              make kernel / firmware / flash / serial
 apply-to-sdk.sh                       一键装进 SDK
-patch/0001~0006                       可复现的补丁
 docs/
   ├── workflow.md                     本文档：完整流程 + Debian
   ├── porting-notes.md                15 个实战案例（最值得看）

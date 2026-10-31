@@ -23,7 +23,6 @@
 | `rockchip_rk3568_board_v10_defconfig` | SDK 板级配置 |
 | `apply-to-sdk.sh` | 一键把板级文件装进 SDK（含 6 个补丁） |
 | `Makefile` | `make kernel` / `firmware` / `flash` / `serial` 等 |
-| `patch/0001~0006` | 可直接 `git apply` 的补丁 |
 | `docs/workflow.md` | **完整流程**：环境 → 编译 → 烧录 → 验证 → 调试 → 排查方法论 |
 | `docs/porting-notes.md` | **15 个实战案例**：每个坑的现象、排查、根因 |
 | `docs/hardware.md` | **硬件手册**：规格、电源树、IO 电压域、引脚、**上电检查表**、**9 个硬件检查点**、原理图索引 |

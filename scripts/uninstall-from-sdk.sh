@@ -47,8 +47,8 @@ fi
 echo "[5/5] 提示"
 cat <<'TIP'
       以下是 patch 打进去、但本脚本不自动回滚的内容（按需手动处理）：
-        - u-boot 的默认 bootargs（patch/0003）
-        - 内核电源域不 panic（patch/0004）
+        - u-boot 的默认 bootargs
+        - 内核电源域不 panic
         - kernel .config 里的 CONFIG_DRM_IGNORE_IOTCL_PERMIT
       以及需要手动清理的构建产物：
         make clean      # 删 buildroot/output（几十 GB）
