@@ -8,7 +8,7 @@
 > 唯一未解决的是 WiFi 接收灵敏度（详见[已知问题](#已知问题--todo)）。
 
 > 首板调试整理了 **9 个硬件检查点**（元件是否贴齐、连接可靠性、供电余量），
-> 都写了现象和定位方法，见 [docs/bom-checklist.md](docs/bom-checklist.md)。
+> 都写了现象和定位方法，见 [docs/hardware.md](docs/hardware.md) 第 8 节。
 > **打算复刻这块板的话，建议上电前先对着这份清单核对一遍。**
 
 [English summary](#english-summary)
@@ -26,11 +26,7 @@
 | `patch/0001~0006` | 可直接 `git apply` 的补丁 |
 | `docs/workflow.md` | **完整流程**：环境 → 编译 → 烧录 → 验证 → 调试 → 排查方法论 |
 | `docs/porting-notes.md` | **15 个实战案例**：每个坑的现象、排查、根因 |
-| `docs/bom-checklist.md` | **9 个硬件检查点** + 现象描述 + 万用表定位方法 |
-| `docs/hardware.md` | 硬件规格、电源树、IO 电压域、引脚分配 |
-| `docs/debian-image.md` | **Debian 桌面镜像**：切换、构建、两个必改的坑 |
-| `docs/bringup-checklist.md` | 首板上电检查表：短路测试、逐路电压、时钟复位 |
-| `hardware/README.md` | 硬件资料说明（**原理图/PCB 见立创开源平台**）|
+| `docs/hardware.md` | **硬件手册**：规格、电源树、IO 电压域、引脚、**上电检查表**、**9 个硬件检查点**、原理图索引 |
 
 **为什么基于 EVB 做减法**：这块板的电源树（RK809-5 + TCS4525）、AP6212、
 HDMI、USB 拓扑和 Rockchip RK3568 EVB1 高度一致，直接继承 1200 多行已验证配置，
@@ -286,7 +282,7 @@ cat /sys/class/drm/card0-HDMI-A-1/status     # connected
 | 包管理 | 无 | **apt** |
 | 默认用户 | root（无密码）| `linaro` / `linaro` |
 
-切换方法见 [docs/debian-image.md](docs/debian-image.md)。
+切换方法见 [docs/workflow.md](docs/workflow.md) 第 9 节。
 
 ## 改名
 
@@ -334,7 +330,7 @@ grep -rl board . | xargs sed -i 's/board/taishan/g'
 - [x] 3.5mm 耳机 + MIC
 - [x] 以太网 1Gbps、NPU、NTP 对时
 
-> 每一项的排查过程见 [docs/bom-checklist.md](docs/bom-checklist.md) 与
+> 每一项的排查过程见 [docs/hardware.md](docs/hardware.md) 与
 > [docs/porting-notes.md](docs/porting-notes.md)。
 
 ## 许可与溯源
@@ -343,7 +339,7 @@ grep -rl board . | xargs sed -i 's/board/taishan/g'
   沿用其 `GPL-2.0+ OR MIT` 双许可声明（文件头 SPDX 已保留）。
 - 本仓库的文档与脚本建议使用 MIT 或 CC-BY-4.0。
 - **请勿转载 SDK 本体**（约 25GB），只分发本仓库的板级差异。
-- 原理图 / PCB / BOM 发布在**立创开源硬件平台（OSHWHub）**，见 [hardware/README.md](hardware/README.md)。
+- 原理图 / PCB / BOM 发布在**立创开源硬件平台（OSHWHub）**（链接待补充），索引见 [docs/hardware.md](docs/hardware.md) 第 11 节。
 
 ## English summary
 
@@ -368,5 +364,5 @@ ruled out — diagnosing further needs a spectrum analyzer.
 Nine hardware defects were found during bring-up (missing parts, cold solder
 joints, power margin); eight are fixed. Every one is documented with its
 symptom, root cause, and how it was located in
-[docs/bom-checklist.md](docs/bom-checklist.md) and
+[docs/hardware.md](docs/hardware.md) and
 [docs/porting-notes.md](docs/porting-notes.md).
