@@ -78,24 +78,31 @@ pinctrl-1 = <&uart8_gpios>
 
 **教训**：用 include 方式继承参考设计时，新增节点必须换一个和参考 dts 不同的**节点名**。
 
-### 坑 3：VCCIO4 / VCCIO6 是 1.8V，不是 3.3V
+### 坑 3：VCCIO4 / VCCIO6 与 EVB 不同
 
-EVB 里：
+EVB 里这两路都是 3.3V：
 
 ```dts
 vccio4-supply = <&vcc_3v3>;
 vccio6-supply = <&vcc_3v3>;
 ```
 
-本板这两路实际接 `VCC_1V8`，必须覆盖：
+**本板 VCCIO6 接 `VCC_1V8`**（eMMC 走 HS200，必须 1.8V 信号），要覆盖：
 
 ```dts
-vccio4-supply = <&vcc_1v8>;
 vccio6-supply = <&vcc_1v8>;
 ```
 
-`vccio4` 同时是 SDIO 的 IO 域，配错会导致 WiFi 枚举不到，
-长期还可能让 IO 工作在错误电平上。
+**VCCIO4 接 `VCCIO_WL`，板上用 0Ω 在 1.8V / 3.3V 之间切换，当前选 3.3V**
+（和 AP6212 的 VDDIO 共用），所以保持 EVB 的 `vcc_3v3` 不动：
+
+```dts
+vccio4-supply = <&vcc_3v3>;   /* 与板上 0Ω 选择一致 */
+```
+
+`vccio4` 同时是 SDIO 的 IO 域。**IO 域驱动只区分 1.8V / 3.3V（一个 bit）**，
+配成 1.8V 而实际供 3.3V 会让 IO 单元过驱——长期有损坏风险，信号余量也变差。
+改板上的 0Ω 时，这里必须同步改。
 
 另外 `vccio2` 在 `drivers/soc/rockchip/io-domain.c` 的 `soc_data_rk3568_pmu`
 里是空实现（`case 3: /* vccio2 */ break;`），写了也不生效，不必配。
@@ -658,23 +665,29 @@ writel((val & 0xffff) | 0xffff0000, reg);
 
 #### 补充：插 USB hub 仍会复位 → 板载 USB 供电能力有限
 
-拆掉 100µF 后空载正常，但插上「hub + 键鼠接收器」又会复位。
+#### 症状二：容量太大和太小都会复位
 
-原因是 SY6280 没有软启动，而 hub 自身的输入电容（常见 100~470µF）叠加上来，
-热插拔瞬间的冲击仍然超出限流，开关进入打嗝保护，把 5V 主轨一起拖垮。
+**注意：两个 USB 通路各有一颗 100µF，不是并联在同一个输出上。**
+每个通路的 SY6280 各自限流 2A，所以是每一路都在按 2A 充电。
 
-**实测：给 hub 接上辅助供电后，键鼠立刻正常。**
+| 每路容量 | 现象 | 原因 |
+|---|---|---|
+| 100µF（原设计）| 一使能就掉电复位 | 单路冲击超限流，把 5V 拉到 PMIC UVLO 以下 |
+| 10µF | 能启动，但插 hub 就复位 | 储能不够，扛不住 hub 的瞬态电流 |
+| **47µF** | **稳定** | 冲击在限流内，同时储能够带 hub |
 
-所以这块板子的 USB 口只能带**低功耗设备**（键鼠、U 盘），带 hub 必须用带电源的 hub。
-根因是 5V 通路的余量不足（适配器功率 + 走线阻抗 + 无软启动），不是软件问题。
+**最终解法：每一路的 VBUS 电容都从 100µF 改成 47µF。** 改完后：
+
+- hub（Genesys Logic）+ 千兆网卡（AX88179）+ 键鼠全部正常
+- **不再需要给 hub 外接电源**
 
 #### 下一版 PCB 建议
 
 1. 其中一个口的 EN 改回 **GPIO0_A6**（`vcc5v0_host` 本来就 always-on，不用改软件）
-2. VBUS 电容改成 **22µF × 2**，或者换用带**软启动**的负载开关
-3. EN 脚加 RC 缓启动（如 100k + 1µF）
+2. 两个 USB 通路**各**预留 **47µF**（低 ESR 陶瓷或钽电容）
+3. 负载开关限流点确认 ≥ 1.5A；EN 脚加 RC 缓启动（如 100k + 1µF）
 
-### 7.14 WiFi：SDIO 通了，但射频收不到任何信号
+### 7.14 WiFi：SDIO 通了，能发不能收
 
 #### 第一阶段：SDIO 完全枚举不到（已解决）
 
@@ -703,7 +716,7 @@ mmc2: Bus speed = 50000000Hz
 
 > 另外 `WL_REG_ON` 当时是飞线接到 VDDIO 才拉高的（SoC 那一侧断了）。
 
-#### 第二阶段：扫描收不到任何信号（未解决）
+#### 第二阶段：`iw scan` 恒为 0 个 AP
 
 SDIO 通了之后，驱动和固件全部正常：
 
@@ -838,32 +851,6 @@ exit 0
 
 存成 `/etc/init.d/S37wifi`，`chmod 755`。比 S36 晚一位，S36 失败后它能兜底。
 
-#### 以太网：只到 10/100Mbps 且频繁掉线（已解决）
-
-调试初期链路频繁起落，多次只协商到 **10Mbps / 100Mbps**，从未上过千兆：
-
-```
-RTL8211F: Downshift occurred from negotiated speed 1Gbps to actual speed 100Mbps, check cabling!
-eth0: Link is Up - 100Mbps/Full
-eth0: Link is Down
-```
-
-板子自己的日志就在喊 `check cabling`。千兆需要四对差分全通，只到百兆说明有一对接触不良。
-
-**最终确认是 RJ45 座接触问题**，重新处理连接器后：
-
-```
-eth0: Link is Up - 1Gbps/Full - flow control rx/tx
-/sys/class/net/eth0/speed = 1000, duplex = full
-```
-
-同类现象还有一个干扰项：PC 侧的网卡（Motorcomm YT8531S + `dwmac-motorcomm` 厂商驱动）
-也会出现「亮 1~4 秒就断」的假象，容易误判成板子问题。**双端排查**能省很多时间。
-
-> 吞吐实测：`ssh` 管道约 20MB/s（≈160Mbps），瓶颈在 A55 的 SSH 加密而非链路。
-> 要测真实带宽请用 `iperf3` / `nc`，不要用 scp 下结论。
-
-
 ### 7.15 音频（3.5mm 耳机）
 
 本板音频走 **RK809 内置 codec**，3.5mm 耳机座的检测脚沿用 EVB 的 `GPIO3_A1`
@@ -928,12 +915,49 @@ pactl list short sinks                    # 找到 rk809 的 sink id
 pactl set-default-sink <id>
 ```
 
+### 7.16 以太网：只到 10/100Mbps 且频繁掉线（已解决）
+
+调试初期链路频繁起落，多次只协商到 **10Mbps / 100Mbps**，从未上过千兆：
+
+```
+RTL8211F: Downshift occurred from negotiated speed 1Gbps to actual speed 100Mbps, check cabling!
+eth0: Link is Up - 100Mbps/Full
+eth0: Link is Down
+```
+
+板子自己的日志就在喊 `check cabling`。千兆需要四对差分全通，只到百兆说明有一对接触不良。
+
+**最终确认是 RJ45 座接触问题**，重新处理连接器后：
+
+```
+eth0: Link is Up - 1Gbps/Full - flow control rx/tx
+/sys/class/net/eth0/speed = 1000, duplex = full
+```
+
+同类现象还有一个干扰项：PC 侧的网卡（Motorcomm YT8531S + `dwmac-motorcomm` 厂商驱动）
+也会出现「亮 1~4 秒就断」的假象，容易误判成板子问题。**双端排查**能省很多时间。
+
+> 吞吐实测：`ssh` 管道约 20MB/s（≈160Mbps），瓶颈在 A55 的 SSH 加密而非链路。
+> 要测真实带宽请用 `iperf3` / `nc`，不要用 scp 下结论。
+
+
 ## 8. 后续
 
+已经做完的：
 
-- [ ] 补一份 u-boot 板级 dts
-- [ ] GPU 供电复核后决定是否打开（weston 需要它）
-- [ ] 按实际 SD 容量重算 `parameter-buildroot-fit.txt`
-- [x] eMMC 已贴片（SDINBDA4-64G），`sdhci` 打开，从 eMMC 启动
+- [x] eMMC 贴片（SDINBDA4-64G），`sdhci` 打开，从 eMMC 启动
+- [x] GPU 确认可用（换掉一颗电源域损坏的 SoC）
+- [x] HDMI 点亮（补齐 1µH 电感 + 1.62kΩ REXT）
+- [x] 以太网 1Gbps
+- [x] USB（VBUS 电容 47µF，hub 无需外接电源）
+- [x] 3.5mm 耳机 + MIC
+- [x] Debian 12 桌面镜像
+
+还没做的：
+
+- [ ] **WiFi 接收灵敏度**——能发不能收，需频谱仪进一步定位
 - [ ] M.2 插槽实测 NVMe 枚举（`lspci -nn`）
-- [ ] 硬件确认项见 [hardware.md](hardware.md) 第 6 节
+- [ ] 补一份 u-boot 板级 dts（目前 u-boot 仍用 EVB 的）
+- [ ] MAC 地址固定（目前随机生成，正式产品应从 OTP 读）
+
+硬件确认项见 [hardware.md](hardware.md) 第 6 节。
