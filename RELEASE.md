@@ -1,5 +1,7 @@
 # RK3568B2 Board V10 — Debian 12 桌面镜像
 
+![RK3568B2 Board V10](docs/images/board.jpg)
+
 > 自制 RK3568B2 开发板的完整可烧录固件。Debian 12.15 + XFCE 桌面，
 > 开箱自动登录，GPU 硬件加速、HDMI 1080p60、千兆以太网、NPU、USB、
 > 3.5mm 耳机 + MIC 全部验证通过。
@@ -10,11 +12,31 @@
 |---|---|---|
 | `update.img.zst` | 968 MB | `7a417284e5c70ade70a96da08f7c5d85` |
 
-解压后为 4.41 GB 的 `update.img`：
+解压后为 4.41 GB 的 `update.img`。
+
+### Linux / macOS
 
 ```bash
-zstd -d update.img.zst        # 需要 zstd，Ubuntu: sudo apt install zstd
+# Debian/Ubuntu
+sudo apt install zstd
+zstd -d update.img.zst
+
+# macOS
+brew install zstd
+zstd -d update.img.zst
 ```
+
+### Windows
+
+`.zst` **不能双击解压**，需要先装工具：
+
+1. 下载 **7-Zip**（免费）：<https://www.7-zip.org/>
+   - 需要 **21.07 或更新版本**（旧版不支持 zstd）
+   - 或 **Bandizip 7.0+**（界面更友好）
+2. 装好后**右键** `update.img.zst` → `7-Zip` → `提取到当前文件夹`
+3. 得到一个 4.41 GB 的 `update.img`
+
+> ⚠️ **WinRAR 和 Windows 自带的解压都不支持 `.zst`**，别用这两个。
 
 ## 镜像里有什么
 
@@ -63,6 +85,8 @@ $UT rd
 > 建议先 `sudo systemctl stop ModemManager`，它会抢 USB 设备。
 
 ### 方式二：Windows + RKDevTool
+
+> 先用 7-Zip 把 `update.img.zst` 解压成 `update.img`（见上方「Windows」一节）。
 
 1. 安装 Rockchip USB 驱动（DriverAssistant）
 2. 打开 `RKDevTool.exe`，应显示「发现一个 MASKROM 设备」

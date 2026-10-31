@@ -17,3 +17,6 @@ serial.log
 # Python 缓存
 __pycache__/
 *.pyc
+
+# Release 暂存目录（放固件大文件，不进版本库）
+release/

@@ -11,6 +11,8 @@
 > 都写了现象和定位方法，见 [docs/hardware.md](docs/hardware.md) 第 8 节。
 > **打算复刻这块板的话，建议上电前先对着这份清单核对一遍。**
 
+![RK3568B2 Board V10](docs/images/board.jpg)
+
 [English summary](#english-summary)
 
 ## 这是什么
