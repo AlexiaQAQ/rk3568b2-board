@@ -7,8 +7,9 @@
 > USB、3.5mm 耳机 + MIC、NTP 对时全部验证通过。
 > 唯一未解决的是 WiFi 接收灵敏度（详见[已知问题](#已知问题--todo)）。
 
-> 首板调试踩了 **9 个硬件坑**（漏贴元件、虚焊、供电余量），已解决 8 个，
-> 全部记录在 [docs/bom-checklist.md](docs/bom-checklist.md)。想复刻的话**先看这份清单**。
+> 首板调试整理了 **9 个硬件检查点**（元件是否贴齐、连接可靠性、供电余量），
+> 都写了现象和定位方法，见 [docs/bom-checklist.md](docs/bom-checklist.md)。
+> **打算复刻这块板的话，建议上电前先对着这份清单核对一遍。**
 
 [English summary](#english-summary)
 
@@ -25,7 +26,7 @@
 | `patch/0001~0006` | 可直接 `git apply` 的补丁 |
 | `docs/workflow.md` | **完整流程**：环境 → 编译 → 烧录 → 验证 → 调试 → 排查方法论 |
 | `docs/porting-notes.md` | **15 个实战案例**：每个坑的现象、排查、根因 |
-| `docs/bom-checklist.md` | **9 个硬件坑** + 万用表定位方法 |
+| `docs/bom-checklist.md` | **9 个硬件检查点** + 现象描述 + 万用表定位方法 |
 | `docs/hardware.md` | 硬件规格、电源树、IO 电压域、引脚分配 |
 | `docs/debian-image.md` | **Debian 桌面镜像**：切换、构建、两个必改的坑 |
 | `docs/bringup-checklist.md` | 首板上电检查表：短路测试、逐路电压、时钟复位 |
@@ -289,18 +290,19 @@ grep -rl myboard . | xargs sed -i 's/myboard/taishan/g'
 - [ ] MAC 地址随机生成，正式产品应从 OTP 读取或固定
 - [ ] HDMI 音频优先级高于 RK809，默认输出会被抢（可用 `pactl set-default-sink` 切）
 
-### 已经解决、仅作记录
+### 已验证通过的硬件项
 
-- [x] eMMC 64GB 贴片并验证（HS200 200MHz）
-- [x] RTL8211F PHY 地址 = 0，25MHz 晶振已补焊
-- [x] RJ45 冷焊导致 `carrier: 0`，补焊后 1Gbps
-- [x] HDMI 点亮（补齐 1µH 电感 + 1.62kΩ REXT）
-- [x] GPU 可用（换掉一颗 GPU 电源域损坏的 SoC）
-- [x] SoC CS1 虚焊导致 DDR 只有 2GB，热风回流后恢复 4GB
-- [x] SoC gpio2-3~9 虚焊导致 WiFi SDIO 完全不枚举，补焊后正常
-- [x] USB 供电：VBUS 电容 10µF → 47µF，hub + 网卡 + 键鼠无需外接电源
-- [x] 3.5mm 耳机 + MIC（`&rk809_sound` 之前误关，改回 `okay`）
-- [x] VCCIO4 电压域（设备树 1.8V → 3.3V，与板上 0Ω 选择一致）
+- [x] eMMC 64GB，HS200 200MHz
+- [x] HDMI 1080p60（含 TMDS 基准电阻）
+- [x] GPU Mali-G52 硬件加速
+- [x] DDR 4GB 双 rank（CS1 已确认连通）
+- [x] USB：hub + 千兆网卡 + 键鼠，无需外接电源
+- [x] VCCIO4 电压域与板上 0Ω 选择一致（3.3V）
+- [x] 3.5mm 耳机 + MIC
+- [x] 以太网 1Gbps、NPU、NTP 对时
+
+> 每一项的排查过程见 [docs/bom-checklist.md](docs/bom-checklist.md) 与
+> [docs/porting-notes.md](docs/porting-notes.md)。
 
 ## 许可与溯源
 
