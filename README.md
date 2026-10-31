@@ -105,6 +105,10 @@ sudo apt-get install -y qemu-user-static
 用立创·泰山派 1M 的 kernel 6.1 SDK（`tspi_1m_linux_kernel6.1_sdk_20260807`），
 它本质上是通用的 `rk3566_rk3568-linux-6.1-stan-rkr7` 系列树。
 
+**下载地址**（官方下载中心）：<https://wiki.lckfb.com/zh-hans/tspi-rk3566/download-center.html>
+
+**官方编译教程**：<https://wiki.lckfb.com/zh-hans/tspi-rk3566/sdk-compilation/linux-compilation.html>
+
 ```bash
 ./extract_sdk.sh
 cd extracted_sdk
@@ -168,8 +172,34 @@ make kernel SDK=/path/to/sdk
 ```
 
 > ⚠️ **不要直接跑 `./build.sh all`**——它会联网从 `sources.buildroot.net`
-> 下载所有软件包，国内经常超时。分开跑 `kernel` 和 `firmware` 即可，
-> 或者按 [docs/workflow.md](docs/workflow.md) 3.8 节配置国内镜像。
+> 下载所有软件包，国内经常超时。分开跑 `kernel` 和 `firmware` 即可。
+
+#### 国内镜像（编 buildroot / rootfs 才需要）
+
+`buildroot` 的软件包源码可以用南京大学镜像代替官方站：
+
+**镜像地址**：<https://mirror.nju.edu.cn/buildroot/>
+
+配置方法：
+
+```bash
+cd ~/rk3568-sdk/buildroot
+
+# 改配置片段（以后重新生成 defconfig 也生效）
+sed -i 's|^BR2_PRIMARY_SITE=.*|BR2_PRIMARY_SITE="https://mirror.nju.edu.cn/buildroot/"|' \
+    configs/rockchip/base/common.config
+sed -i 's|^BR2_BACKUP_SITE=.*|BR2_BACKUP_SITE="https://sources.buildroot.net"|' \
+    configs/rockchip/base/common.config
+
+# 同步到已生成的 build 配置（立即生效）
+for f in output/*/*/.config; do
+    sed -i 's|^BR2_PRIMARY_SITE=.*|BR2_PRIMARY_SITE="https://mirror.nju.edu.cn/buildroot/"|' "$f"
+done
+```
+
+保留 `BR2_BACKUP_SITE` 指向官方站，镜像个别新版本没同步时会自动回落。
+
+> 详细说明见 [docs/workflow.md](docs/workflow.md) 3.8 节。
 
 #### 不用 Makefile 的手动方式
 

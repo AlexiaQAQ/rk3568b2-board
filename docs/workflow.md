@@ -25,6 +25,12 @@ sudo apt-get install -y \
 
 ### 1.2 SDK 与工具链
 
+**SDK 下载**：<https://wiki.lckfb.com/zh-hans/tspi-rk3566/download-center.html>
+
+**官方编译教程**：<https://wiki.lckfb.com/zh-hans/tspi-rk3566/sdk-compilation/linux-compilation.html>
+
+**buildroot 软件包镜像**：<https://mirror.nju.edu.cn/buildroot/>（见 3.8 节）
+
 ```bash
 cd ~/rk3568-sdk
 export PATH="$HOME/.local/opt/sdk-deps/bin:$PATH"
@@ -157,6 +163,9 @@ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
 **这不是 SDK 镜像站**——`mirror.nju.edu.cn/buildroot/` 是 buildroot 的
 **软件包源码镜像**（相当于官方 `sources.buildroot.net` 的国内副本），
 里面只有 `busybox-1.37.0.tar.bz2` 这类包，**没有 Rockchip SDK 本身**。
+
+> SDK 要从立创的下载中心拿：
+> <https://wiki.lckfb.com/zh-hans/tspi-rk3566/download-center.html>
 
 配置方法（改 SDK 里的文件）：
 
