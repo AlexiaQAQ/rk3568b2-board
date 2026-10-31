@@ -761,10 +761,39 @@ brcmfmac: Firmware: BCM43430/1 wl0: Jun 13 2018 version 7.45.96.24
 但 `iw dev wlan0 scan` **依然是 0 个 AP**。
 
 至此：**两套完全独立的驱动（bcmdhd / brcmfmac）× 三颗模组（含别处验证正常的）
-= 全部 0 个 AP**，软件层面可以完全排除，问题在板子的 RF 物理通路。
+= 全部 0 个 AP**。
 
-最可能：LGA 模组的 **ANT 引脚虚焊**——四周引脚吃上锡（SDIO 全通、固件能下载），
-唯独天线脚是空的。
+#### ⚠️ 重要修正：射频硬件其实是好的
+
+后来用 NetworkManager 建了一个 **adhoc（IBSS）** 网络，手机能在 WiFi 列表里看到
+这个 SSID —— 说明**板子的射频发射是正常的**，之前的判断（模组 RF 前端损坏）
+是**错误的**。
+
+进一步实测确认：
+
+| 测试 | 结果 | 结论 |
+|---|---|---|
+| adhoc 模式发 beacon | ✅ 手机能看到 SSID | **TX 正常** |
+| `iw dev wlan0 scan` | ❌ 恒为 0 | **扫描功能坏了** |
+| `iw dev wlan0 station dump` | 空 | adhoc 里没别的设备，正常 |
+| `/proc/net/wireless` level | -57 dBm（有效值）| 射频链路在工作 |
+| 换监管域（00/BO/US）| 全部 0 | 与监管无关 |
+| hostapd 建 AP | ❌ `Failed to set beacon parameters` | 该固件不支持 AP 模式 |
+| `nmcli device wifi connect` | ❌ 找不到网络 | 关联前要先扫描，扫描坏了就连不上 |
+
+**最终结论**：硬件（天线、PA、电源）都没问题，**坏的是固件的扫描（escan）路径**。
+
+驱动日志一直在报：
+
+```
+[dhd] [wlan0] wl_run_escan : LEGACY_SCAN sync ID: 105, bssidx: 0
+```
+
+扫描请求发出去了，但固件返回 0 个 BSS。怀疑是 **2024 年的 bcmdhd 驱动 + 2018 年的
+firmware 之间的 escan 事件格式不兼容**，或者缺少 CLM blob 导致固件的信道表为空。
+
+> 补救思路：换一颗别的方案的模组（RTL8723DS / AIC8800），或者用 USB WiFi 网卡。
+> AP6212 这条路在这个 SDK 版本上暂时走不通。
 
 #### 附带改动：bcmdhd 改用带内中断
 
