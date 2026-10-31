@@ -29,20 +29,22 @@ export PATH := $(DEPS_BIN):$(PATH)
 endif
 
 .DEFAULT_GOAL := help
-.PHONY: help deps install check kernel uboot buildroot image firmware clean distclean flash flash-di flash-wl serial
+.PHONY: help deps install uninstall check kernel uboot buildroot image firmware clean distclean flash flash-di flash-wl serial
 
 help:
 	@echo "RK3568B2 板级支持"
 	@echo ""
 	@echo "  make deps        检查主机依赖"
 	@echo "  make install     安装板级文件到 SDK ($(SDK))"
+	@echo "  make uninstall   从 SDK 移除板级文件"
 	@echo "  make check       只编译 dtb，验证设备树语法"
-	@echo "  make kernel      编译内核"
+	@echo "  make kernel      编译内核 + dtb → boot.img"
 	@echo "  make uboot       编译 u-boot"
-	@echo "  make buildroot   编译根文件系统"
-	@echo "  make firmware    打包 boot/uboot/loader"
-	@echo "  make image       全量编译并生成 update.img"
+	@echo "  make buildroot   编译根文件系统（需联网/镜像）"
+	@echo "  make firmware    组装 update.img（不重编 rootfs）"
+	@echo "  make image       kernel + firmware（推荐）"
 	@echo "  make clean       清理 buildroot 输出（下次全量重编）"
+	@echo "  make distclean   再清理 SDK output/"
 	@echo "  make flash       烧录整包（MaskROM + upgrade_tool，含 IDB）"
 	@echo "  make flash-di    只写 uboot/boot/rootfs 分区，跳过 IDB（IDB 写失败时用）"
 	@echo "  make flash-wl    按扇区直写，绕开分区表（最底层退路）"
@@ -90,6 +92,10 @@ install:
 	@$(call ensure_sdk)
 	@./apply-to-sdk.sh "$(SDK)" | sed 's/^/  /'
 
+uninstall:
+	@$(call ensure_sdk)
+	@./scripts/uninstall-from-sdk.sh "$(SDK)"
+
 check:
 	@$(call ensure_sdk)
 	@./apply-to-sdk.sh "$(SDK)" --build 2>&1 | tail -5
@@ -110,9 +116,14 @@ buildroot: install
 firmware:
 	@cd "$(SDK)" && ./build.sh firmware
 
+# 注意：不用 ./build.sh all —— 它会从 sources.buildroot.net 下载所有软件包，
+# 国内经常超时，而且前面跑完 kernel/uboot 也白等。
+# 分成 kernel + firmware 两步即可；要重建 rootfs 请单独 make buildroot。
 image: install
-	@echo "==> 全量编译（kernel + uboot + buildroot + update.img）"
-	@cd "$(SDK)" && ./build.sh all
+	@echo "==> 编译内核"
+	@cd "$(SDK)" && ./build.sh kernel
+	@echo "==> 组装固件"
+	@cd "$(SDK)" && ./build.sh firmware
 	@echo ""
 	@ls -lh "$(IMAGE)" 2>/dev/null || true
 	@echo "产物: $(IMAGE)"
@@ -122,18 +133,21 @@ serial:
 
 # ---------- 清理与烧录 ----------
 clean:
-	@test -d "$(SDK)/buildroot/output" && rm -rf "$(SDK)/buildroot/output" || true
-	@echo "已清理 buildroot 输出（下次 make image 将全量重编）"
+	@if [ -d "$(SDK)/buildroot/output" ]; then \
+		echo "删除 $(SDK)/buildroot/output（$$(du -sh $(SDK)/buildroot/output 2>/dev/null | cut -f1)）"; \
+		rm -rf "$(SDK)/buildroot/output"; \
+	fi
+	@echo "已清理 buildroot 输出（下次 make buildroot 将全量重编）"
 
 distclean: clean
 	@rm -rf "$(SDK)/output" "$(SDK)/rockdev"
 	@echo "已清理 SDK output/ 与 rockdev/（会丢失 lunch 选择）"
 
 # Rockchip 官方流程：MaskROM → db 下 boot → ssd 选存储 → uf 烧固件
-# 本板无 eMMC，ssd 时必须选 SD（列表里的 No=3）
+# 本板从 eMMC 启动，ssd 时选 2（EMMC）；SD 卡是 3
 # 不需要 sudo：/etc/udev/rules.d/99-rockchip-usb.rules 已把 VID 2207 设为 0666
 #
-# 注意：ssd 只能交互输入。用 echo 3 | upgrade_tool ssd 会因为拿不到 tty 直接
+# 注意：ssd 只能交互输入。用 echo 2 | upgrade_tool ssd 会因为拿不到 tty 直接
 # 返回 "Switch Storage failed!"（它内部要做终端处理），别再试管道了。
 flash:
 	@test -f "$(IMAGE)" || { echo "❌ 还没有 $(IMAGE)，先 make image"; exit 1; }

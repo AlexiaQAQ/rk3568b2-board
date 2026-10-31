@@ -156,12 +156,15 @@ make firmware      # 组装 update.img
 |---|---|---|
 | `make deps` | 检查依赖，缺什么直接列出 | 秒 |
 | `make install` | 把 DTS / defconfig 装进 SDK | 秒 |
+| `make uninstall` | 从 SDK 移除板级文件 | 秒 |
 | `make check` | 只编 dtb，验证设备树语法 | ~1 秒 |
 | `make kernel` | 编内核 + dtb → `boot.img` | 1~2 分钟（增量）|
 | `make uboot` | 编 u-boot | ~1 分钟 |
 | `make buildroot` | 编 buildroot 根文件系统 | 首次 40 分钟 |
 | `make firmware` | 组装 `update.img`（**不重编 rootfs**）| ~2 分钟 |
-| `make image` | 全量编译并生成 `update.img` | 首次约 1 小时 |
+| `make image` | `kernel` + `firmware` | 约 5 分钟（增量）|
+| `make clean` | 删 `buildroot/output`（几十 GB）| — |
+| `make distclean` | 再删 SDK 的 `output/` | — |
 | `make flash` | 用 `upgrade_tool` 烧录 | — |
 | `make serial` | 串口终端（1500000 8N1）| — |
 
