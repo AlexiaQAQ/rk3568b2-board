@@ -309,8 +309,6 @@ grep -rl board . | xargs sed -i 's/board/taishan/g'
 
 ### 软件
 
-- [ ] u-boot 仍用 EVB 设备树（`rk3568-evb`）
-- [ ] MAC 地址随机生成，正式产品应从 OTP 读取或固定
 - [ ] HDMI 音频优先级高于 RK809，默认输出会被抢（可用 `pactl set-default-sink` 切）
 
 ### 已验证通过的硬件项
