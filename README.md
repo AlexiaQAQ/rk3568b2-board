@@ -58,7 +58,7 @@
 | NPU | ✅ | rknpu v0.9.8，900MHz，`/dev/dri/renderD128` |
 | 以太网 | ✅ | RTL8211F **1Gbps 全双工**，ping 0% 丢包 |
 | USB | ✅ | 开机自动供电，2.4G 键鼠正常（hub 需外接电源） |
-| WiFi/BT | ⚠️ | SDIO 通、**射频发射正常**（adhoc 可用），但固件**扫描功能**坏了，扫不到也连不上 |
+| WiFi/BT | ⚠️ | SDIO 通、**发射正常**（adhoc 可用），但**接收灵敏度极低**，扫不到也连不上 |
 | M.2 / 摄像头 | — | 未使用，未验证 |
 
 调试过程与每个坑的排查方法见 [docs/porting-notes.md](docs/porting-notes.md)（13 个实战案例）。

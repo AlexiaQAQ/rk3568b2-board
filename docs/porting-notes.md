@@ -703,7 +703,7 @@ mmc2: Bus speed = 50000000Hz
 
 > 另外 `WL_REG_ON` 当时是飞线接到 VDDIO 才拉高的（SoC 那一侧断了）。
 
-#### 第二阶段：射频收不到任何信号（未解决，判定为模组损坏）
+#### 第二阶段：扫描收不到任何信号（未解决）
 
 SDIO 通了之后，驱动和固件全部正常：
 
@@ -715,7 +715,7 @@ Country code: CN (CN/0)
 wlan0 存在，1~11 信道，20dBm
 ```
 
-但 `iw dev wlan0 scan` 恒为 **0 个 AP**（同一位置电脑能扫到 12 个，信号 60~100）。
+但 `iw dev wlan0 scan` 几乎恒为 **0 个 AP**（同一位置电脑能扫到 12 个，信号 60~100）。
 
 排查过程（全部无效）：
 
@@ -723,77 +723,44 @@ wlan0 存在，1~11 信道，20dBm
 |---|---|
 | a0 固件 + `nvram_ap6212.txt` | 0 AP |
 | a1 固件 + `nvram_ap6212a.txt` | 0 AP |
-| 直接导线接模组 RF 焊盘（3cm，免匹配） | 0 AP |
+| 换 NVRAM 的 PA 参数（ap6212 ↔ ap6212a）| 0 AP |
+| 导线直连模组 RF 焊盘（3cm）| 0 AP |
 | 检查 RF 网络对地电阻 | 开路，无短路 |
-| 改用带内中断（重编 bcmdhd 去掉 `-DOOB_INTR_ONLY`） | 0 AP |
-| 单信道定向扫描 `scan freq 2412` | 0 AP |
+| 天线焊盘直流电压 | 0V，无偏置 |
+| 改用带内中断（`CONFIG_BCMDHD_OOB := n`）| 0 AP |
+| 单信道定向扫描（多信道都试）| 0 AP |
+| 换监管域（00 / BO / US）| 0 AP |
+| 主线 `brcmfmac` 驱动 | 0 AP |
+| 换 Debian 12（完全不同的 rootfs）| 0 AP |
+| 三颗模组（含别处验证正常的）| 0 AP |
 
-**判断依据**：主机发起的每一次 SDIO 访问（下载固件、写 NVRAM、读寄存器、配信道）都成功，
-但芯片主动的数据（扫描结果）一条都没有。加上导线直连 RF 焊盘也无信号 → **模组 RF 前端损坏**。
+#### 关键转折：发射是正常的
 
-下一步应换一颗 AP6212 模组。
+最后用 NetworkManager 建了一个 **adhoc（IBSS）** 网络，手机在 WiFi 列表里
+**能看到这个 SSID** —— 说明**射频发射完全正常**，之前"模组 RF 前端损坏"的
+判断是**错误的**。
 
-
-#### 交叉验证：换主线 brcmfmac 驱动，结论不变
-
-为了排除「Rockchip bcmdhd（2024 驱动）+ 2018 固件的兼容性问题」，
-又用主线内核的 `brcmfmac` 驱动做了同样测试：
-
-```sh
-# 内核配置
-./scripts/config --module BRCMUTIL --module BRCMFMAC --enable BRCMFMAC_SDIO
-make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules
-
-# 板子上：brcmfmac 的固件命名规则
-mkdir -p /lib/firmware/brcm
-cp /lib/firmware/fw_bcm43438a1.bin   /lib/firmware/brcm/brcmfmac43430-sdio.bin
-cp /lib/firmware/nvram_ap6212a.txt   /lib/firmware/brcm/brcmfmac43430-sdio.txt
-insmod brcmutil.ko && insmod brcmfmac.ko
-```
-
-`brcmfmac` 正常识别并加载固件：
-
-```
-brcmfmac: using brcm/brcmfmac43430-sdio for chip BCM43430/1
-brcmfmac: Firmware: BCM43430/1 wl0: Jun 13 2018 version 7.45.96.24
-```
-
-但 `iw dev wlan0 scan` **依然是 0 个 AP**。
-
-至此：**两套完全独立的驱动（bcmdhd / brcmfmac）× 三颗模组（含别处验证正常的）
-= 全部 0 个 AP**。
-
-#### ⚠️ 重要修正：射频硬件其实是好的
-
-后来用 NetworkManager 建了一个 **adhoc（IBSS）** 网络，手机能在 WiFi 列表里看到
-这个 SSID —— 说明**板子的射频发射是正常的**，之前的判断（模组 RF 前端损坏）
-是**错误的**。
-
-进一步实测确认：
+进一步实测：
 
 | 测试 | 结果 | 结论 |
 |---|---|---|
-| adhoc 模式发 beacon | ✅ 手机能看到 SSID | **TX 正常** |
-| `iw dev wlan0 scan` | ❌ 恒为 0 | **扫描功能坏了** |
-| `iw dev wlan0 station dump` | 空 | adhoc 里没别的设备，正常 |
-| `/proc/net/wireless` level | -57 dBm（有效值）| 射频链路在工作 |
-| 换监管域（00/BO/US）| 全部 0 | 与监管无关 |
-| hostapd 建 AP | ❌ `Failed to set beacon parameters` | 该固件不支持 AP 模式 |
-| `nmcli device wifi connect` | ❌ 找不到网络 | 关联前要先扫描，扫描坏了就连不上 |
+| adhoc 发 beacon | ✅ 手机能看到 SSID | **TX 正常** |
+| `iw scan` | ❌ 几乎恒为 0 | 扫描功能有问题 |
+| IBSS 模式下扫描 | 只扫到自己的网络 | 不跳信道？ |
+| 手机热点就在旁边时扫描 | ⚠️ **偶尔成功**（Alexia，信号 100）| 只收到极强的信号 |
+| 周围 AP（信号 60~80）| ❌ 一个都收不到 | 接收灵敏度异常 |
+| hostapd 建 AP | ❌ `Failed to set beacon parameters` | 固件不支持 AP 模式 |
+| `iw reg set` 多个监管域 | 全部 0 | 与监管无关 |
 
-**最终结论**：硬件（天线、PA、电源）都没问题，**坏的是固件的扫描（escan）路径**。
+**最终判断**：TX 正常、**RX 灵敏度极低**（只能听到近在咫尺、信号 100 的强信号）。
+天线、走线、供电、时钟都已逐一确认正常，所以问题在**模组的射频前端**
+（LNA 或内部收发开关），或者 **bcmdhd 2024 驱动 + 2018 固件之间扫描路径不兼容**。
 
-驱动日志一直在报：
+远程排查到此为止——进一步定位需要频谱仪看模组实际收发什么。
 
-```
-[dhd] [wlan0] wl_run_escan : LEGACY_SCAN sync ID: 105, bssidx: 0
-```
-
-扫描请求发出去了，但固件返回 0 个 BSS。怀疑是 **2024 年的 bcmdhd 驱动 + 2018 年的
-firmware 之间的 escan 事件格式不兼容**，或者缺少 CLM blob 导致固件的信道表为空。
-
-> 补救思路：换一颗别的方案的模组（RTL8723DS / AIC8800），或者用 USB WiFi 网卡。
-> AP6212 这条路在这个 SDK 版本上暂时走不通。
+> **实际影响**：WiFi 无法正常使用（扫不到网络也连不上）。
+> 需要的场合建议用 USB WiFi 网卡（RTL8188/8192，内核驱动已内置），
+> 或下一版改用 RTL8723DS / AIC8800 等不同方案的模组。
 
 #### 附带改动：bcmdhd 改用带内中断
 
