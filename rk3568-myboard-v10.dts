@@ -504,8 +504,13 @@
 };
 
 /* 板载 codec：本板未提音频，先关；若要用耳机/喇叭把这里改回 okay */
+/*
+ * RK809 内置 codec → 3.5mm 耳机座
+ * 耳机检测沿用 EVB 的 GPIO3_A1（低有效，插入时拉低），本板这个脚没有被占用。
+ * 如果实测插拔耳机没有反应，说明本板的 HP_DET 接在别的脚上，改这里的 hp-det-gpio。
+ */
 &rk809_sound {
-	status = "disabled";
+	status = "okay";
 };
 
 /* EVB 的心跳灯在 GPIO0_C0，本板若无此灯就关掉 */
