@@ -3,6 +3,49 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.9.2] - 2026-10-31
+
+**3.5mm 耳机 + MIC 全部验证通过**
+
+### 耳机
+
+`&rk809_sound` 之前被关成 `disabled`，改回 `okay` 后声卡出现（card 0），
+`speaker-test -D hw:0,0` 实测有声，耳机检测和播放路径自动切换都正常。
+
+### MIC
+
+同一颗 RK809 codec 的 ADC，PipeWire 里自动出现录音源：
+
+```
+alsa_input.platform-rk809-sound.HiFi__hw_rockchiprk809__source
+```
+
+`parecord` 实测：
+
+```
+直流偏置: 1580
+交流 RMS: 1178.8
+峰值:     12049
+```
+
+### 两个坑
+
+**1. 声卡编号**：RK809 = card 0，SPDIF = card 1，HDMI = card 2。
+测耳机要用 `hw:0,0`，用错就听到 HDMI 去了。
+
+**2. ALSA 设备被 PipeWire 占用**：`arecord -D hw:0,0` 会报
+`设备或资源忙`，要改用 `parecord --device=alsa_input...`。
+
+### 3. 默认输出优先级
+
+HDMI 的 `priority.driver` 是 3000，RK809 只有 1000，WirePlumber 默认选 HDMI。
+需要手动切：
+
+```sh
+export XDG_RUNTIME_DIR=/run/user/1000
+pactl set-default-sink <rk809 的 sink id>
+```
+
 ## [0.9.1] - 2026-10-31
 
 **3.5mm 耳机打通**

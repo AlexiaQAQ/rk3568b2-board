@@ -892,6 +892,42 @@ amixer -c 0 cget numid=12         # Playback Path，应为 HP (item 3)
 > ⚠️ **声卡编号容易搞错**：RK809 = card 0，SPDIF = card 1，HDMI = card 2。
 > 用 `hw:2,0` 测会没声音（声音走到 HDMI 了）。
 
+**MIC 录音**（同一颗 RK809 的 ADC）：
+
+```sh
+# PipeWire 下的录音源
+pactl list short sources | grep rk809
+# alsa_input.platform-rk809-sound.HiFi__hw_rockchiprk809__source
+
+# 录音（注意不能用 arecord，ALSA 设备被 PipeWire 占着）
+export XDG_RUNTIME_DIR=/run/user/1000
+parecord --device=alsa_input.platform-rk809-sound.HiFi__hw_rockchiprk809__source \
+         --file-format=wav /tmp/mic.wav
+```
+
+实测数据：直流偏置 1580（RK809 ADC 固有），交流 RMS 1178，峰值 12049。
+
+> ⚠️ `arecord -D hw:0,0` 会报 `设备或资源忙`——PipeWire 独占 ALSA 设备。
+> 要么用 `parecord`，要么先停 PipeWire。
+
+**MIC 路径**：
+
+| numid | 名称 | 说明 |
+|---|---|---|
+| 13 | `Capture MIC Path` | 0=OFF 1=Main Mic 2=Hands Free Mic 3=BT Sco Mic |
+| 26 | `Main Mic Switch` | 板载麦克风 |
+| 27 | `Headset Mic Switch` | 耳机麦克风（4 段插头）|
+| 21 | `Headset Mic Jack` | 耳机麦克风插入检测 |
+
+**默认输出会被 HDMI 抢走**：HDMI 的 `priority.driver=3000`，RK809 只有 1000，
+WirePlumber 每次都选 HDMI。要切耳机：
+
+```sh
+export XDG_RUNTIME_DIR=/run/user/1000
+pactl list short sinks                    # 找到 rk809 的 sink id
+pactl set-default-sink <id>
+```
+
 ## 8. 后续
 
 
