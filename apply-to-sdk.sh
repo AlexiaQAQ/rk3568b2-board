@@ -5,7 +5,17 @@
 #   ./apply-to-sdk.sh /path/to/sdk          # 只安装
 #   ./apply-to-sdk.sh /path/to/sdk --build  # 安装并编译 dtb 验证
 #
-# 全部用 cp/sed 完成，不依赖 SDK 是不是 git 仓库；每一步都可重复执行。
+# 全部用 cp / sed / python3 完成，不依赖 SDK 是不是 git 仓库。
+# 每一步都先检查再动手，可以重复执行。
+#
+# 一共装/改 7 处：
+#   1  内核设备树        rk3568-board-v10.dts
+#   2  板级配置          rockchip_rk3568_board_v10_defconfig
+#   3  u-boot 默认 bootargs   root=PARTUUID 写死，换分区表也不会启动失败
+#   4  内核电源域不 panic     手板调试时某个域起不来不该直接挂死
+#   5  内核 DRM 配置          SDK 的 check-kernel.sh 强制要求
+#   6  bcmdhd 带内中断        不依赖板上的 WL_HOST_WAKE 那根线
+#   7  注册 dtb 到 Makefile
 set -euo pipefail
 
 SDK="${1:-}"
@@ -27,9 +37,10 @@ DEFCONFIG="rockchip_rk3568_board_v10_defconfig"
 echo "[1/7] 安装设备树 -> $DTS_DIR/$NAME.dts"
 cp "$PORT/$NAME.dts" "$DTS_DIR/"
 
-echo "[2/7] 安装 defconfig -> $CHIP_DIR"
+echo "[2/7] 安装板级配置 -> $CHIP_DIR"
 cp "$PORT/$DEFCONFIG" "$CHIP_DIR/"
 
+# u-boot 里写死 root=PARTUUID，避免依赖 u-boot 自己猜分区
 echo "[3/7] u-boot：写入默认 bootargs"
 UB_H="$UB/include/configs/rk3568_common.h"
 if [ ! -f "$UB_H" ]; then
@@ -38,9 +49,15 @@ elif grep -q 'root=PARTUUID=614e0000-0000-4b53' "$UB_H"; then
 	echo "      已存在，跳过"
 else
 	sed -i 's|^\tENV_MEM_LAYOUT_SETTINGS \\$|\tENV_MEM_LAYOUT_SETTINGS \\\n\t"bootargs=console=ttyS2,1500000n8 earlycon=uart8250,mmio32,0xfe660000 " \\\n\t"root=PARTUUID=614e0000-0000-4b53-8000-1d28000054a9 rootwait rw\\0" \\|' "$UB_H"
-	echo "      已写入"
+	if grep -q 'root=PARTUUID=614e0000-0000-4b53' "$UB_H"; then
+		echo "      已写入"
+	else
+		echo "      ⚠ 没找到 ENV_MEM_LAYOUT_SETTINGS 那一行，未修改"
+		echo "        （SDK 版本不同？请手动在 CONFIG_EXTRA_ENV_SETTINGS 里加 bootargs）"
+	fi
 fi
 
+# 原版在电源域握手失败时直接 panic()，手板调试时根本进不了用户态
 echo "[4/7] 内核：电源域握手失败不 panic"
 PMD="$K/drivers/soc/rockchip/pm_domains.c"
 if [ ! -f "$PMD" ]; then
@@ -63,10 +80,11 @@ if old in s:
     open(p, 'w').write(s.replace(old, new, 1))
     print("      已修改")
 else:
-    print("      未找到目标行，跳过（SDK 版本可能不同）")
+    print("      ⚠ 没找到目标行，跳过（SDK 版本可能不同）")
 PY
 fi
 
+# SDK 打包脚本会检查 .config 里有没有这一项
 echo "[5/7] 内核配置：CONFIG_DRM_IGNORE_IOTCL_PERMIT"
 FRAG="$K/arch/arm64/configs/rk3568.config"
 if grep -q '^CONFIG_DRM_IGNORE_IOTCL_PERMIT=y' "$FRAG" 2>/dev/null; then
@@ -76,7 +94,9 @@ else
 	echo "      已追加"
 fi
 
-echo "[6/7] bcmdhd：改用 SDIO 带内中断（不依赖 WL_HOST_WAKE）"
+# 驱动默认编译成 OOB 中断，要求 WL_HOST_WAKE 那根线是通的；
+# 改成带内中断后只需要 SDIO 总线正常
+echo "[6/7] bcmdhd：改用 SDIO 带内中断"
 BCM_MK="$K/drivers/net/wireless/rockchip_wlan/rkwifi/bcmdhd/Makefile"
 if [ ! -f "$BCM_MK" ]; then
 	echo "      找不到 bcmdhd Makefile，跳过"
@@ -108,7 +128,10 @@ CROSS="$SDK/prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-
 export PATH="$HOME/.local/opt/sdk-deps/bin:$PATH"
 
 cd "$K"
-make ARCH=arm64 CROSS_COMPILE="$CROSS" rockchip_linux_defconfig
+# 只在还没有 .config 时才生成，避免覆盖用户已经配好的东西
+if [ ! -f .config ]; then
+	make ARCH=arm64 CROSS_COMPILE="$CROSS" rockchip_linux_defconfig
+fi
 make ARCH=arm64 CROSS_COMPILE="$CROSS" "rockchip/$NAME.dtb" -j"$(nproc)"
 
 echo
