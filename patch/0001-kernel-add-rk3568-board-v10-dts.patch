@@ -1,0 +1,458 @@
+diff --git a/arch/arm64/boot/dts/rockchip/Makefile b/arch/arm64/boot/dts/rockchip/Makefile
+index bc5f135d23a1..4ede6ee4fe46 100644
+--- a/arch/arm64/boot/dts/rockchip/Makefile
++++ b/arch/arm64/boot/dts/rockchip/Makefile
+@@ -428,3 +428,4 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rv1126bp-evb-v14.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rv1126bp-evb-v14-dual-cam.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rv1126bp-evb1-v12.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rv1126bp-evb1-v12-fastboot-emmc.dtb
++dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3568-board-v10.dtb
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-board-v10.dts b/arch/arm64/boot/dts/rockchip/rk3568-board-v10.dts
+new file mode 100644
+--- /dev/null
++++ b/arch/arm64/boot/dts/rockchip/rk3568-board-v10.dts
+@@ -0,0 +1,444 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * RK3568B2 自定义板 V10
++ *
++ * 设计思路：复用 Rockchip RK3568 EVB1 参考设计（电源树 / PHY / USB 均已验证），
++ * 只关掉本板没有的外设，并覆盖板级差异。
++ *
++ *   SoC    : RK3568B2 (FCCSP, 2.0GHz)
++ *   DDR    : LPDDR4X 4GB x32 (RS1G32LO4D2BDS-53BT, 1560MHz)
++ *   PMIC   : RK809-5 @I2C0 0x20 + TCS4525 @I2C0 0x1c (VDD_CPU)
++ *   存储   : eMMC 64GB (SDINBDA4-64G, HS200) + SD 卡
++ *   网络   : 1x RTL8211F-CG (GMAC1, RGMII) + AP6212 (WiFi SDIO / BT UART)
++ *   显示   : HDMI
++ *   音频   : RK809 内置 codec (3.5mm 耳机 + MIC)
++ *   USB    : Type-C OTG (仅 USB2.0) + USB3.0 Host
++ *   调试   : UART2 @ 1500000
++ *
++ * 板名 "board" 可按需替换成自己的命名（同时改文件名、compatible 和 defconfig）。
++ */
++
++/dts-v1/;
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/pinctrl/rockchip.h>
++#include "rk3568-evb1-ddr4-v10.dtsi"
++
++/ {
++	model = "RK3568B2 Board V10";
++	compatible = "rockchip,rk3568-board-v10", "rockchip,rk3568";
++
++	/* /memory 由 u-boot 按实际容量填充，不要硬编码 */
++
++	/* 本板无 VGA，其电源会占用 GPIO0_D5 */
++	vcc3v3_vga: vcc3v3-vga {
++		status = "disabled";
++	};
++
++	/* 本板无 M.2/PCIe，其 3.3V 电源会占用 GPIO0_D4 */
++	vcc3v3_pcie: vcc3v3-pcie {
++		status = "disabled";
++	};
++};
++
++/* ==================== GPU / NPU ==================== */
++
++&gpu {
++	/* mali-supply / OPP / 电源域全部继承 EVB1 */
++	status = "okay";
++};
++
++&rknpu {
++	/* rk356x.dtsi 里 npu 节点只有 interrupts 没有 interrupt-names，
++	 * 补上后驱动不会再打印 "IRQ npu_irq not found" */
++	interrupt-names = "npu_irq";
++	status = "okay";
++};
++
++/* ==================== 以太网：GMAC1 / RTL8211F ==================== */
++/*
++ * RTL8211F 接 GMAC1（m1 复用）：
++ *   MDC/MDIO -> GPIO4_B6/B7    TXD/RXD -> GPIO4_A0~A6 + GPIO3_D6/D7
++ *   PHY 复位 -> GMAC1_RSTN_GPIO3_B0
++ * GMAC0 的引脚被 SDMMC1(WiFi) 和 UART1(BT) 占用，必须关闭。
++ */
++&gmac0 {
++	status = "disabled";
++};
++
++&mdio0 {
++	status = "disabled";
++};
++
++&gmac1 {
++	snps,reset-gpio = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
++	status = "okay";
++};
++
++&mdio1 {
++	status = "okay";
++};
++
++/* ==================== 存储 ==================== */
++
++/* SD 卡：DAT1~3 走线不稳，回退 1-bit 保证可用 */
++&sdmmc0 {
++	max-frequency = <50000000>;
++	bus-width = <1>;
++	/delete-property/ sd-uhs-sdr104;
++	status = "okay";
++};
++
++/* eMMC：8-bit / HS200 */
++&sdhci {
++	bus-width = <8>;
++	non-removable;
++	no-sd;
++	no-sdio;
++	max-frequency = <200000000>;
++	status = "okay";
++};
++
++&sfc {
++	status = "disabled";	/* 无 SPI NAND */
++};
++
++&nandc0 {
++	status = "disabled";
++};
++
++/* ==================== IO 电压域 ==================== */
++/*
++ * 驱动只处理 pmuio2 / vccio1 / vccio3~7（pmuio1 和 vccio2 是空实现）。
++ *
++ *   VCCIO1 = LDO4  vccio_acodec  3.0V
++ *   VCCIO2 = VCC_1V8 (1.8V)，由 FLASH_VOL_SEL 引脚硬件决定，驱动不处理
++ *   VCCIO3 = LDO5  vccio_sd
++ *   VCCIO4 = VCCIO_WL，0Ω 选 **3.3V**（和 AP6212 的 VDDIO 共用）
++ *   VCCIO5 = VCC_3V3
++ *   VCCIO6 = VCC_1V8 (1.8V)   ← EVB 是 3.3V
++ *   VCCIO7 = VCC_3V3
++ *
++ * 注意：io-domain 只区分 1.8V / 3.3V（一个 bit）。配 1.8V 而实际供 3.3V
++ * 会让 IO 单元过驱，长期有损坏风险。改板上 0Ω 时这里要同步改。
++ */
++&pmu_io_domains {
++	status = "okay";
++
++	pmuio2-supply = <&vcc3v3_pmu>;
++	vccio1-supply = <&vccio_acodec>;
++	vccio3-supply = <&vccio_sd>;
++	vccio4-supply = <&vcc_3v3>;	/* VCCIO_WL 选 3.3V */
++	vccio5-supply = <&vcc_3v3>;
++	vccio6-supply = <&vcc_1v8>;	/* 本板 1.8V */
++	vccio7-supply = <&vcc_3v3>;
++};
++
++/* ==================== WiFi / BT：AP6212 ==================== */
++/*
++ * WiFi = SDMMC1（EVB 用 sdmmc2），BT = UART1 m0 + 硬件流控（EVB 用 uart8）
++ *
++ *   SDMMC1  CLK=GPIO2_B0  CMD=GPIO2_A7  D0~D3=GPIO2_A3~A6
++ *   UART1   TX=GPIO2_B4   RX=GPIO2_B3   RTSN=GPIO2_B5  CTSN=GPIO2_B6
++ *   WL_REG_ON    = GPIO2_B1      WL_HOST_WAKE = GPIO2_B2
++ *   BT_REG_ON    = GPIO2_B7      BT_WAKE      = GPIO2_C1
++ *   BT_HOST_WAKE = GPIO2_C0
++ */
++
++/* 调试串口，rk356x.dtsi 里默认 disabled */
++&uart2 {
++	status = "okay";
++};
++
++&uart8 {
++	status = "disabled";
++};
++
++&uart1 {
++	status = "okay";
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart1m0_xfer &uart1m0_ctsn &uart1m0_rtsn>;
++};
++
++&pinctrl {
++	wifi-pwrseq-board {
++		wifi_enable_h_board: wifi-enable-h-board {
++			rockchip,pins = <2 RK_PB1 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
++	wlan-board {
++		wifi_host_wake_irq_board: wifi-host-wake-irq-board {
++			rockchip,pins = <2 RK_PB2 RK_FUNC_GPIO &pcfg_pull_down>;
++		};
++	};
++};
++
++/*
++ * WL_REG_ON (GPIO2_B1) 原本被 sdio_pwrseq.reset-gpios 和
++ * wireless_wlan.WIFI,poweren_gpio 两个独占驱动同时申请，谁先 probe 谁拿到，
++ * 另一个静默失败；本板该脚有下拉，无人驱动时保持低电平 → AP6212 不上电。
++ * 改由独立 always-on 稳压器统一驱动。
++ */
++/ {
++	wl_reg_on: wl-reg-on {
++		compatible = "regulator-fixed";
++		regulator-name = "wl_reg_on";
++		regulator-always-on;
++		regulator-boot-on;
++		enable-active-high;
++		gpio = <&gpio2 RK_PB1 GPIO_ACTIVE_HIGH>;
++		vin-supply = <&vcc_1v8>;
++	};
++};
++
++&sdio_pwrseq {
++	pinctrl-names = "default";
++	pinctrl-0 = <&wifi_enable_h_board>;
++	/delete-property/ reset-gpios;
++};
++
++&sdmmc1 {
++	max-frequency = <150000000>;
++	no-sd;
++	no-mmc;
++	bus-width = <4>;
++	disable-wp;
++	cap-sd-highspeed;
++	cap-sdio-irq;
++	keep-power-in-suspend;
++	mmc-pwrseq = <&sdio_pwrseq>;
++	non-removable;
++	sd-uhs-sdr104;
++	pinctrl-names = "default";
++	pinctrl-0 = <&sdmmc1_bus4 &sdmmc1_cmd &sdmmc1_clk>;
++	status = "okay";
++};
++
++&sdmmc2 {
++	status = "disabled";
++};
++
++&wireless_wlan {
++	status = "okay";
++	wifi_chip_type = "ap6212";
++	/* WL_REG_ON 由 wl_reg_on 稳压器统一驱动，这里不再申请同一个 GPIO */
++	/delete-property/ WIFI,poweren_gpio;
++	/*
++	 * 去掉 OOB 中断：bcmdhd 默认编译为 -DOOB_INTR_ONLY，注册 HW_OOB 后会关掉
++	 * SDIO 带内中断，一旦 WL_HOST_WAKE（GPIO2_B2）不通，主机就收不到任何事件。
++	 * 配合 patch/0006 把驱动改成带内中断，不再依赖这根线。
++	 */
++	/delete-property/ WIFI,host_wake_irq;
++	pinctrl-names = "default";
++	pinctrl-0 = <&wifi_host_wake_irq_board>;
++};
++
++/*
++ * EVB 的 wireless_bluetooth 绑死在 uart8 的引脚上（uart_rts_gpios = GPIO2_B1，
++ * 那是本板的 WL_REG_ON），无法通过覆盖属性改掉，所以关掉它另起一个节点。
++ */
++&wireless_bluetooth {
++	status = "disabled";
++};
++
++/ {
++	bt_platdata: bt-platdata {
++		compatible = "bluetooth-platdata";
++		bt_port = "/dev/ttyS1";
++		clocks = <&rk809 1>;
++		clock-names = "ext_clock";
++
++		BT,reset_gpio    = <&gpio2 RK_PB7 GPIO_ACTIVE_HIGH>;	/* BT_REG_ON */
++		BT,wake_gpio     = <&gpio2 RK_PC1 GPIO_ACTIVE_HIGH>;	/* HOST_WAKE_BT */
++		BT,wake_host_irq = <&gpio2 RK_PC0 GPIO_ACTIVE_HIGH>;	/* BT_WAKE_HOST */
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&bt_reg_on_gpio &bt_wake_gpio &bt_host_wake_gpio>;
++		status = "okay";
++	};
++};
++
++&pinctrl {
++	bt-board {
++		bt_reg_on_gpio: bt-reg-on-gpio {
++			rockchip,pins = <2 RK_PB7 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++		bt_wake_gpio: bt-wake-gpio {
++			rockchip,pins = <2 RK_PC1 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++		bt_host_wake_gpio: bt-host-wake-gpio {
++			rockchip,pins = <2 RK_PC0 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++	};
++};
++
++/* ==================== 显示：只保留 HDMI ==================== */
++
++&hdmi {
++	status = "okay";
++};
++
++&hdmi_sound {
++	status = "okay";
++};
++
++&route_hdmi {
++	status = "okay";
++};
++
++&dsi0 {
++	status = "disabled";
++};
++
++&dsi1 {
++	status = "disabled";
++};
++
++&edp {
++	status = "disabled";
++};
++
++&route_dsi0 {
++	status = "disabled";
++};
++
++&route_edp {
++	status = "disabled";
++};
++
++&dsi0_panel {
++	status = "disabled";
++};
++
++&dsi1_panel {
++	status = "disabled";
++};
++
++/* 本板无屏，禁用背光/屏供电，避免占用 GPIO0_C7 等 */
++&vcc3v3_lcd0_n {
++	status = "disabled";
++};
++
++&vcc3v3_lcd1_n {
++	status = "disabled";
++};
++
++/* ==================== 外部接口 ==================== */
++
++&pcie3x2 {
++	status = "disabled";
++};
++
++&pcie30phy {
++	status = "disabled";
++};
++
++&sata2 {
++	status = "disabled";
++};
++
++/* ==================== USB ==================== */
++/*
++ * 原理图上两个 USB 口的 VBUS 使能都接到了 GPIO0_A5（复制粘贴笔误），
++ * GPIO0_A6 悬空。EVB 里 vcc5v0_otg 只在 OTG host 模式才被拉起，
++ * 所以 USB3.0 Host 的 A 口平时没电 —— 这里强制常开。
++ *
++ * 注意：使能瞬间有大冲击电流。EVB 的输出后级挂了两颗 100µF 钽电容，
++ * 会导致 5V 被拉到 PMIC 的 UVLO 以下而掉电复位（表现为无限重启，
++ * 且万用表量 VBUS 对地是 2MΩ，看不出问题）。
++ * 本板最终把 VBUS 电容定为 47µF：太小带不动 hub，太大上电冲击超限流。
++ */
++&vcc5v0_otg {
++	regulator-always-on;
++	regulator-boot-on;
++};
++
++&usbdrd_dwc3 {
++	dr_mode = "otg";
++	maximum-speed = "high-speed";	/* Type-C 只有 USB2.0 */
++	status = "okay";
++};
++
++&usbhost_dwc3 {
++	dr_mode = "host";
++	maximum-speed = "super-speed";	/* USB3.0 Host */
++	status = "okay";
++};
++
++/* ==================== 关掉 EVB 上有、本板没有的外设 ==================== */
++
++/* 摄像头：本板无 MIPI CSI。EVB 的 i2c4 上挂了传感器和 VCM，
++ * 不关会在开机时报一堆 read reg failed / Unexpected sensor id */
++&dw9714 {
++	status = "disabled";
++};
++
++&gc8034 {
++	status = "disabled";
++};
++
++&os04a10 {
++	status = "disabled";
++};
++
++&ov5695 {
++	status = "disabled";
++};
++
++&csi2_dphy_hw {
++	status = "disabled";
++};
++
++&csi2_dphy0 {
++	status = "disabled";
++};
++
++&rkisp {
++	status = "disabled";
++};
++
++&rkisp_mmu {
++	status = "disabled";
++};
++
++&rkisp_vir0 {
++	status = "disabled";
++};
++
++&vcc_camera {
++	status = "disabled";
++};
++
++/* 触摸 */
++&gt1x {
++	status = "disabled";
++};
++
++&hynitron {
++	status = "disabled";
++};
++
++/* RK809 内置 codec → 3.5mm 耳机座。耳机检测沿用 EVB 的 GPIO3_A1，
++ * 若插拔无反应，说明本板 HP_DET 接在别的脚上，改 hp-det-gpio */
++&rk809_sound {
++	status = "okay";
++};
++
++/* EVB 的心跳灯在 GPIO0_C0 */
++&leds {
++	status = "disabled";
++};
++
++/* ==================== 电源树 ==================== */
++/*
++ * 完全继承 EVB1，不做修改：
++ *   SW1=vdd_logic  SW2=vdd_gpu  SW3=vcc_ddr  SW4=vdd_npu
++ *   LDO1=vdda0v9_image  LDO2=vdda_0v9     LDO3=vdda0v9_pmu
++ *   LDO4=vccio_acodec   LDO5=vccio_sd     LDO6=vcc3v3_pmu
++ *   LDO7=vcca_1v8       LDO8=vcca1v8_pmu  LDO9=vcca1v8_image
++ *   VDD_CPU = TCS4525 @0x1c    PMIC_INT = GPIO0_A3
++ *
++ * LDO8 (vcca1v8_pmu) 与 VCC1V8_DDR 之间用 0Ω 短接，DDR 的 VDD1 由 PMU 域供电，
++ * 掉电/待机时 DDR 能保持自刷新。
++ */

@@ -51,7 +51,7 @@ cd ~/MyProject/board-port
 
 | 步骤 | 内容 |
 |---|---|
-| 1 | 拷贝 `rk3568-myboard-v10.dts` 到 `kernel-6.1/arch/arm64/boot/dts/rockchip/` |
+| 1 | 拷贝 `rk3568-board-v10.dts` 到 `kernel-6.1/arch/arm64/boot/dts/rockchip/` |
 | 2 | 应用 `patch/0001~0006` |
 | 3 | 注册 dtb 到 Makefile、追加 defconfig 片段 |
 | 4 | 安装板级 buildroot 配置 |
@@ -104,7 +104,7 @@ make serial        # 串口终端
 
 ### 3.4 只改设备树时
 
-改完 `rk3568-myboard-v10.dts` 后：
+改完 `rk3568-board-v10.dts` 后：
 
 ```bash
 cd ~/MyProject/board-port
@@ -139,7 +139,7 @@ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
 ```
 
 > ⚠️ `build.sh` 可能会用 defconfig 片段重新生成 `.config`，把手工改的选项覆盖掉。
-> 需要长期生效的配置应该写进 `rockchip_rk3568_myboard_v10_defconfig` 或
+> 需要长期生效的配置应该写进 `rockchip_rk3568_board_v10_defconfig` 或
 > `arch/arm64/configs/rk3568.config`。
 
 ### 3.7 产物对应关系
@@ -743,8 +743,8 @@ sudo ip addr add 192.168.1.1/24 dev enp44s0
 ## 九、仓库结构
 
 ```
-rk3568-myboard-v10.dts                板级 DTS（唯一需要改的文件）
-rockchip_rk3568_myboard_v10_defconfig 板级配置
+rk3568-board-v10.dts                板级 DTS（唯一需要改的文件）
+rockchip_rk3568_board_v10_defconfig 板级配置
 Makefile                              make kernel / firmware / flash / serial
 apply-to-sdk.sh                       一键装进 SDK
 patch/0001~0006                       可复现的补丁

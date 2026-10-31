@@ -17,13 +17,13 @@ SDK="$(cd "$SDK" && pwd)"          # 转成绝对路径，后面要 cd 进内核
 PORT="$(cd "$(dirname "$0")" && pwd)"
 CHIP_DIR="$SDK/device/rockchip/rk3566_rk3568"
 DTS_DIR="$SDK/kernel-6.1/arch/arm64/boot/dts/rockchip"
-NAME="rk3568-myboard-v10"
+NAME="rk3568-board-v10"
 
 echo "[1/5] 安装设备树 -> $DTS_DIR/$NAME.dts"
 cp "$PORT/$NAME.dts" "$DTS_DIR/"
 
 echo "[2/5] 安装 defconfig -> $CHIP_DIR"
-cp "$PORT/rockchip_rk3568_myboard_v10_defconfig" "$CHIP_DIR/"
+cp "$PORT/rockchip_rk3568_board_v10_defconfig" "$CHIP_DIR/"
 
 echo "[3/5] 打 u-boot 补丁（默认 bootargs）"
 UB="$SDK/u-boot"

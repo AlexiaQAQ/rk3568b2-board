@@ -24,7 +24,7 @@ SOFTWARE.
 
 Note on the device tree:
 
-  rk3568-myboard-v10.dts is derived from Rockchip's RK3568 EVB device trees
+  rk3568-board-v10.dts is derived from Rockchip's RK3568 EVB device trees
   (arch/arm64/boot/dts/rockchip/rk3568-evb*.dtsi), which are dual-licensed
   "GPL-2.0+ OR MIT". The SPDX identifier in the file header is preserved.
   Choosing MIT for this repository is compatible with that dual license.

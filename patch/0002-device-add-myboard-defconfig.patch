@@ -1,8 +1,0 @@
-diff --git a/.chips/rk3566_rk3568/rockchip_rk3568_myboard_v10_defconfig b/.chips/rk3566_rk3568/rockchip_rk3568_myboard_v10_defconfig
-new file mode 100644
-index 0000000..36b99e2
---- /dev/null
-+++ b/.chips/rk3566_rk3568/rockchip_rk3568_myboard_v10_defconfig
-@@ -0,0 +1,2 @@
-+RK_KERNEL_DTS_NAME="rk3568-myboard-v10"
-+RK_PARAMETER="parameter-buildroot-fit.txt"

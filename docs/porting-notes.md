@@ -113,7 +113,7 @@ vccio6-supply = <&vcc_1v8>;
 2026-10-21，`extract_sdk.sh` + `repo sync -l` 完成后实测：
 
 ```
-DTC     arch/arm64/boot/dts/rockchip/rk3568-myboard-v10.dtb
+DTC     arch/arm64/boot/dts/rockchip/rk3568-board-v10.dtb
 ✓ 编译通过（191 KB）
 ```
 
@@ -150,7 +150,7 @@ CONFIG_DEFAULT_DEVICE_TREE = "rk3568-evb"
 
 ```bash
 cd u-boot
-cp arch/arm/dts/rk3568-evb.dts arch/arm/dts/rk3568-myboard.dts
+cp arch/arm/dts/rk3568-evb.dts arch/arm/dts/rk3568-board.dts
 # 改 model/compatible，并把 configs/rk3568_defconfig 里的
 # CONFIG_DEFAULT_DEVICE_TREE 指过去
 ```

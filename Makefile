@@ -17,7 +17,7 @@ SERIAL_BAUD ?= 1500000
 LOG  ?= serial.log
 
 REPO_DIR  := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
-NAME      := rk3568-myboard-v10
+NAME      := rk3568-board-v10
 DEPS_BIN  := $(HOME)/.local/opt/sdk-deps/bin
 IMAGE     := $(SDK)/output/update/Image/update.img
 LOADER    := $(SDK)/u-boot/rk356x_spl_loader_v1.25.114.bin

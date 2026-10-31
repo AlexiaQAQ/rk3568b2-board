@@ -19,8 +19,8 @@
 
 | 内容 | 说明 |
 |---|---|
-| `rk3568-myboard-v10.dts` | 板级设备树，`#include` Rockchip EVB1 参考设计后做减法 |
-| `rockchip_rk3568_myboard_v10_defconfig` | SDK 板级配置 |
+| `rk3568-board-v10.dts` | 板级设备树，`#include` Rockchip EVB1 参考设计后做减法 |
+| `rockchip_rk3568_board_v10_defconfig` | SDK 板级配置 |
 | `apply-to-sdk.sh` | 一键把板级文件装进 SDK（含 6 个补丁） |
 | `Makefile` | `make kernel` / `firmware` / `flash` / `serial` 等 |
 | `patch/0001~0006` | 可直接 `git apply` 的补丁 |
@@ -131,7 +131,7 @@ cd board-port
 
 | 步骤 | 内容 |
 |---|---|
-| 1 | 拷 `rk3568-myboard-v10.dts` 到 `kernel-6.1/arch/arm64/boot/dts/rockchip/` |
+| 1 | 拷 `rk3568-board-v10.dts` 到 `kernel-6.1/arch/arm64/boot/dts/rockchip/` |
 | 2 | 拷 defconfig |
 | 3 | 打 u-boot 补丁（默认 bootargs）|
 | 3.5 | 打内核补丁（电源域失败不 panic）|
@@ -206,7 +206,7 @@ done
 ```bash
 export PATH="$HOME/.local/opt/sdk-deps/bin:$PATH"
 cd "$SDK"
-./build.sh rockchip_rk3568_myboard_v10_defconfig   # 换配置时执行一次
+./build.sh rockchip_rk3568_board_v10_defconfig   # 换配置时执行一次
 ./build.sh kernel      # 或 uboot / rootfs / firmware
 ```
 
@@ -287,11 +287,11 @@ cat /sys/class/drm/card0-HDMI-A-1/status     # connected
 
 ## 改名
 
-板名统一用了占位符 `myboard`。改名为你的板子（例如 `taishan`）：
+板名统一用了占位符 `board`。改名为你的板子（例如 `taishan`）：
 
 ```bash
 cd board-port
-grep -rl myboard . | xargs sed -i 's/myboard/taishan/g'
+grep -rl board . | xargs sed -i 's/board/taishan/g'
 # 然后把 rk3568-taishan-v10.dts 等文件名一起改掉
 ```
 

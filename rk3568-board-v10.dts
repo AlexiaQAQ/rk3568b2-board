@@ -15,7 +15,7 @@
  *   USB    : Type-C OTG (仅 USB2.0) + USB3.0 Host
  *   调试   : UART2 @ 1500000
  *
- * "myboard" 是占位符，改成自己的板名即可。
+ * 板名 "board" 可按需替换成自己的命名（同时改文件名、compatible 和 defconfig）。
  */
 
 /dts-v1/;
@@ -25,8 +25,8 @@
 #include "rk3568-evb1-ddr4-v10.dtsi"
 
 / {
-	model = "My RK3568B2 Board V10";
-	compatible = "rockchip,rk3568-myboard-v10", "rockchip,rk3568";
+	model = "RK3568B2 Board V10";
+	compatible = "rockchip,rk3568-board-v10", "rockchip,rk3568";
 
 	/* /memory 由 u-boot 按实际容量填充，不要硬编码 */
 
@@ -161,14 +161,14 @@
 };
 
 &pinctrl {
-	wifi-pwrseq-myboard {
-		wifi_enable_h_myboard: wifi-enable-h-myboard {
+	wifi-pwrseq-board {
+		wifi_enable_h_board: wifi-enable-h-board {
 			rockchip,pins = <2 RK_PB1 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
-	wlan-myboard {
-		wifi_host_wake_irq_myboard: wifi-host-wake-irq-myboard {
+	wlan-board {
+		wifi_host_wake_irq_board: wifi-host-wake-irq-board {
 			rockchip,pins = <2 RK_PB2 RK_FUNC_GPIO &pcfg_pull_down>;
 		};
 	};
@@ -194,7 +194,7 @@
 
 &sdio_pwrseq {
 	pinctrl-names = "default";
-	pinctrl-0 = <&wifi_enable_h_myboard>;
+	pinctrl-0 = <&wifi_enable_h_board>;
 	/delete-property/ reset-gpios;
 };
 
@@ -231,7 +231,7 @@
 	 */
 	/delete-property/ WIFI,host_wake_irq;
 	pinctrl-names = "default";
-	pinctrl-0 = <&wifi_host_wake_irq_myboard>;
+	pinctrl-0 = <&wifi_host_wake_irq_board>;
 };
 
 /*
@@ -260,7 +260,7 @@
 };
 
 &pinctrl {
-	bt-myboard {
+	bt-board {
 		bt_reg_on_gpio: bt-reg-on-gpio {
 			rockchip,pins = <2 RK_PB7 RK_FUNC_GPIO &pcfg_pull_none>;
 		};

@@ -741,10 +741,10 @@ DAT1~DAT3 至少还有一条有问题，镜像统一改回 `bus-width = <1>`、`
 
 ### 新增
 
-- `rk3568-myboard-v10.dts`：基于 Rockchip RK3568 EVB1 参考设计的板级设备树
-- `rockchip_rk3568_myboard_v10_defconfig`：SDK 板级配置
-- `patch/0001-kernel-add-rk3568-myboard-v10-dts.patch`：内核侧补丁
-- `patch/0002-device-add-myboard-defconfig.patch`：device/rockchip 侧补丁
+- `rk3568-board-v10.dts`：基于 Rockchip RK3568 EVB1 参考设计的板级设备树
+- `rockchip_rk3568_board_v10_defconfig`：SDK 板级配置
+- `patch/0001-kernel-add-rk3568-board-v10-dts.patch`：内核侧补丁
+- `patch/0002-device-add-board-defconfig.patch`：device/rockchip 侧补丁
 - `apply-to-sdk.sh`：一键安装板级文件并可选编译 dtb 验证
 - `docs/hardware.md`、`docs/porting-notes.md`
 
