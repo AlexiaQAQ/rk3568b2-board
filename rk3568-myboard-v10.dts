@@ -451,7 +451,25 @@
 
 /* ==================== 关掉 EVB 上有、本板没有的东西 ==================== */
 
-/* 摄像头 */
+/* 摄像头：本板没有 MIPI CSI 接口，整条链路全部关掉
+ * （EVB 的 dtsi 里 i2c4 上挂了 gc8034 / os04a10 / ov5695 和 dw9714 对焦马达，
+ *   不关的话每次开机会看到一堆 "read reg failed"、"Unexpected sensor id"） */
+&dw9714 {
+	status = "disabled";
+};
+
+&gc8034 {
+	status = "disabled";
+};
+
+&os04a10 {
+	status = "disabled";
+};
+
+&ov5695 {
+	status = "disabled";
+};
+
 &csi2_dphy_hw {
 	status = "disabled";
 };
