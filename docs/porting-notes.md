@@ -863,6 +863,35 @@ eth0: Link is Up - 1Gbps/Full - flow control rx/tx
 > 吞吐实测：`ssh` 管道约 20MB/s（≈160Mbps），瓶颈在 A55 的 SSH 加密而非链路。
 > 要测真实带宽请用 `iperf3` / `nc`，不要用 scp 下结论。
 
+
+### 7.15 音频（3.5mm 耳机）
+
+本板音频走 **RK809 内置 codec**，3.5mm 耳机座的检测脚沿用 EVB 的 `GPIO3_A1`
+（低有效）。
+
+**踩的坑**：早期排查时把 `&rk809_sound` 关成了 `disabled`（当时以为本板没有音频），
+结果 `/proc/asound/cards` 里只有 SPDIF 和 HDMI，以为硬件不存在。
+
+正确配置：
+
+```dts
+&rk809_sound {
+	status = "okay";
+};
+```
+
+验证：
+
+```sh
+cat /proc/asound/cards            # 应有 rockchip-rk809
+speaker-test -D hw:0,0 -t sine -f 1000 -c 2 -l 1
+amixer -c 0 cget numid=20         # Headphone Jack，插拔时 on/off 变化
+amixer -c 0 cget numid=12         # Playback Path，应为 HP (item 3)
+```
+
+> ⚠️ **声卡编号容易搞错**：RK809 = card 0，SPDIF = card 1，HDMI = card 2。
+> 用 `hw:2,0` 测会没声音（声音走到 HDMI 了）。
+
 ## 8. 后续
 
 

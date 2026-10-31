@@ -3,6 +3,35 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.9.1] - 2026-10-31
+
+**3.5mm 耳机打通**
+
+之前 `&rk809_sound` 被关成 `disabled`，导致 RK809 内置 codec 完全没有声卡，
+3.5mm 耳机座不可用。本板有「RK809 codec + 3.5mm 耳机座 + MIC」，应保持开启。
+
+改回 `okay` 后：
+
+```sh
+$ cat /proc/asound/cards
+ 0 [rockchiprk809 ]: rockchip-rk809 - rockchip-rk809
+ 1 [ROCKCHIPSPDIF ]: simple-card - ROCKCHIP,SPDIF
+ 2 [rockchiphdmi  ]: rockchip-hdmi - rockchip-hdmi
+
+$ speaker-test -D hw:0,0 -t sine -f 1000 -c 2 -l 1
+```
+
+耳机检测也正常（`Headphone Jack` 在 on/off 之间随插拔变化），
+播放路径自动切到 `HP`。
+
+> 注意声卡编号：RK809 是 **card 0**，HDMI 是 card 2。用错声卡会没声音
+> （声音走到 HDMI 去了）。
+
+### 其他
+
+- 关闭摄像头链路（本板无 MIPI CSI 接口）：`dw9714` / `gc8034` / `os04a10` / `ov5695`
+  全部 `disabled`，开机不再有 27 条传感器探测失败日志
+
 ## [0.9.0] - 2026-10-31
 
 **项目收尾：Debian 支持 + WiFi 定性**
