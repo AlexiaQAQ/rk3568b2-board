@@ -47,17 +47,18 @@ cd ~/MyProject/board-port
 ./apply-to-sdk.sh
 ```
 
-脚本做的事：
+脚本做 8 件事，每一步都可重复执行：
 
-| 步骤 | 内容 |
-|---|---|
-| 1 | 拷贝 `rk3568-board-v10.dts` 到 `kernel-6.1/arch/arm64/boot/dts/rockchip/` |
-| 2 | 修改 u-boot / 内核（bootargs、电源域不 panic、DRM 配置、bcmdhd 带内中断）|
-| 3 | 注册 dtb 到 Makefile、追加 defconfig 片段 |
-| 4 | 安装板级 buildroot 配置 |
-| 5 | 修补 u-boot 的默认 bootargs |
-| 6 | 打开 `CONFIG_DRM_IGNORE_IOTCL_PERMIT`（SDK 打包脚本强制要求） |
-| 7 | bcmdhd 改用带内中断（不依赖 WL_HOST_WAKE） |
+| 步骤 | 内容 | 为什么 |
+|---|---|---|
+| 1 | 安装 `rk3568-board-v10.dts` | 板级设备树 |
+| 2 | 安装 `rockchip_rk3568_board_v10_defconfig` | 板级配置 |
+| 3 | u-boot 默认 bootargs 写入 `root=PARTUUID` | 不依赖 u-boot 自己猜分区 |
+| 4 | 内核电源域握手失败改为报错继续 | 原版 `panic()`，手板调试时进不了用户态 |
+| 5 | 打开 `CONFIG_DRM_IGNORE_IOTCL_PERMIT` | SDK 的 `check-kernel.sh` 强制要求 |
+| 6 | bcmdhd 改用 SDIO 带内中断 | 不依赖 WL_HOST_WAKE 那根线 |
+| 7 | 注册 dtb 到 dts Makefile | 不加就编不出 dtb |
+| 8 | 安装 u-boot 板级设备树并切换 `CONFIG_DEFAULT_DEVICE_TREE` | 串口日志能认出板子 |
 
 **这是整个项目最重要的一步。** 板级差异全部集中在一个 dts 里，其余继承 EVB1 参考设计。
 
@@ -203,7 +204,7 @@ make busybox-source        # 应能看到从 mirror.nju.edu.cn 下载
 | `https://mirrors.tuna.tsinghua.edu.cn/buildroot/` | 清华（如可用）|
 | `https://mirrors.ustc.edu.cn/` | 中科大（GNU 包）|
 
-### 3.8 编译常见错误
+### 3.9 编译常见错误
 
 | 报错 | 原因 |
 |---|---|

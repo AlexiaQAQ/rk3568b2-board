@@ -3,6 +3,10 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+> 这里只记录**改了什么**。每个问题的现象、排查过程和根因见
+> [docs/porting-notes.md](docs/porting-notes.md)，硬件检查点见
+> [docs/hardware.md](docs/hardware.md)。
+
 ## [0.9.6] - 2026-11-02
 
 **文档收尾与发布准备**

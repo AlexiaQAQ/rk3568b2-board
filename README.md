@@ -78,36 +78,28 @@ HDMI、USB 拓扑和 Rockchip RK3568 EVB1 高度一致，直接继承 1200 多�
 
 ## 快速开始
 
-### 0. 主机依赖
+> 详细的编译选项、烧录报错处理、调试手段见
+> [docs/workflow.md](docs/workflow.md)。
 
-Ubuntu 22.04/24.04 上至少需要：
+### 1. 装依赖
 
 ```bash
 sudo apt-get install -y \
   build-essential git python3 python-is-python3 cmake \
   bison flex bc libssl-dev libelf-dev libncurses-dev device-tree-compiler \
-  gawk texinfo diffstat chrpath patchelf expect gettext rsync unzip bzip2 lz4
-
-# 编 Debian rootfs 还需要
-sudo apt-get install -y qemu-user-static
+  gawk texinfo diffstat chrpath patchelf expect gettext rsync unzip bzip2 lz4 \
+  qemu-user-static
 ```
 
-几个容易漏的点：
+> 三个容易漏的：`python-is-python3`（SDK 检查 `python` 命令）、`gawk`（内核脚本用
+> gawk 语法）、`qemu-user-static`（编 Debian rootfs 必需）。
 
-- **`python-is-python3`**：SDK 的 `check-kernel.sh` 会检查 `python` 命令，
-  只有 `python3` 的机器会直接报 `Your python is missing`。
-- **`gawk`**：内核脚本用了 gawk 扩展语法，只有 mawk 时会在编译中途失败。
-- **`gettext`（`msgmerge`）**：编 buildroot 时会检查，缺了报 `msgmerge is missing`。
-- **`qemu-user-static`**：编 Debian rootfs 必需（arm64 chroot）。
+### 2. 准备 SDK
 
-### 1. 准备 SDK
+用立创·泰山派 1M 的 kernel 6.1 SDK（`tspi_1m_linux_kernel6.1_sdk_*`）：
 
-用立创·泰山派 1M 的 kernel 6.1 SDK（`tspi_1m_linux_kernel6.1_sdk_20260807`），
-它本质上是通用的 `rk3566_rk3568-linux-6.1-stan-rkr7` 系列树。
-
-**下载地址**（官方下载中心）：<https://wiki.lckfb.com/zh-hans/tspi-rk3566/download-center.html>
-
-**官方编译教程**：<https://wiki.lckfb.com/zh-hans/tspi-rk3566/sdk-compilation/linux-compilation.html>
+- **下载**：<https://wiki.lckfb.com/zh-hans/tspi-rk3566/download-center.html>
+- **官方教程**：<https://wiki.lckfb.com/zh-hans/tspi-rk3566/sdk-compilation/linux-compilation.html>
 
 ```bash
 ./extract_sdk.sh
@@ -115,123 +107,35 @@ cd extracted_sdk
 python3 .repo/repo/repo sync -l -j$(nproc)
 ```
 
-> `repo sync` 依赖 Python `multiprocessing` 的 `/dev/shm`，受限容器里会报
-> `PermissionError: /dev/shm/pym-*`，需放开该目录。
-
-### 2. 安装板级文件
+### 3. 装板级文件
 
 ```bash
 cd board-port
-./apply-to-sdk.sh                    # 默认 $HOME/rk3568-sdk
-./apply-to-sdk.sh /path/to/sdk       # 指定路径
-./apply-to-sdk.sh /path/to/sdk --build   # 装完顺便编 dtb 验证
+./apply-to-sdk.sh ~/rk3568-sdk          # 装完顺带编 dtb 验证：加 --build
 ```
 
-脚本做 6 件事：
+做 8 件事（设备树、defconfig、u-boot bootargs、电源域、DRM 配置、
+bcmdhd 带内中断、dtb 注册、u-boot 设备树），**每一步都可重复执行**，
+详见 [docs/workflow.md](docs/workflow.md) 第二章。
 
-| 步骤 | 内容 |
-|---|---|
-| 1 | 拷 `rk3568-board-v10.dts` 到 `kernel-6.1/arch/arm64/boot/dts/rockchip/` |
-| 2 | 拷 defconfig |
-| 3 | 打 u-boot 补丁（默认 bootargs）|
-| 3.5 | 打内核补丁（电源域失败不 panic）|
-| 3.6 | 打开 `CONFIG_DRM_IGNORE_IOTCL_PERMIT`（SDK 打包脚本强制要求）|
-| 3.7 | bcmdhd 改用 SDIO 带内中断（不依赖 WL_HOST_WAKE）|
-| 4 | 注册 dtb 到 Makefile |
-
-### 3. 编译
-
-用仓库根目录的 `Makefile`，它处理 PATH、SDK 检查、板级文件安装：
+### 4. 编译
 
 ```bash
-cd board-port
-make deps          # 检查主机依赖
-make kernel        # 编内核 + dtb → boot.img
-make firmware      # 组装 update.img
+make kernel        # 内核 + dtb → boot.img（约 2 分钟）
+make firmware      # 组装 update.img（约 2 分钟）
 ```
 
-常用目标：
+> ⚠️ **不要用 `./build.sh all`**——它会从 `sources.buildroot.net` 下载所有
+> 软件包，国内经常超时。需要重建 rootfs 时单独跑 `make buildroot`。
+> 国内镜像配置见 [docs/workflow.md](docs/workflow.md) 3.8 节。
 
-| 命令 | 作用 | 耗时 |
-|---|---|---|
-| `make deps` | 检查依赖，缺什么直接列出 | 秒 |
-| `make install` | 把 DTS / defconfig 装进 SDK | 秒 |
-| `make uninstall` | 从 SDK 移除板级文件 | 秒 |
-| `make check` | 只编 dtb，验证设备树语法 | ~1 秒 |
-| `make kernel` | 编内核 + dtb → `boot.img` | 1~2 分钟（增量）|
-| `make uboot` | 编 u-boot | ~1 分钟 |
-| `make buildroot` | 编 buildroot 根文件系统 | 首次 40 分钟 |
-| `make firmware` | 组装 `update.img`（**不重编 rootfs**）| ~2 分钟 |
-| `make image` | `kernel` + `firmware` | 约 5 分钟（增量）|
-| `make clean` | 删 `buildroot/output`（几十 GB）| — |
-| `make distclean` | 再删 SDK 的 `output/` | — |
-| `make flash` | 用 `upgrade_tool` 烧录 | — |
-| `make serial` | 串口终端（1500000 8N1）| — |
+### 5. 烧录
 
-SDK 不在默认位置：
-
-```bash
-make kernel SDK=/path/to/sdk
-```
-
-> ⚠️ **不要直接跑 `./build.sh all`**——它会联网从 `sources.buildroot.net`
-> 下载所有软件包，国内经常超时。分开跑 `kernel` 和 `firmware` 即可。
-
-#### 国内镜像（编 buildroot / rootfs 才需要）
-
-`buildroot` 的软件包源码可以用南京大学镜像代替官方站：
-
-**镜像地址**：<https://mirror.nju.edu.cn/buildroot/>
-
-配置方法：
-
-```bash
-cd ~/rk3568-sdk/buildroot
-
-# 改配置片段（以后重新生成 defconfig 也生效）
-sed -i 's|^BR2_PRIMARY_SITE=.*|BR2_PRIMARY_SITE="https://mirror.nju.edu.cn/buildroot/"|' \
-    configs/rockchip/base/common.config
-sed -i 's|^BR2_BACKUP_SITE=.*|BR2_BACKUP_SITE="https://sources.buildroot.net"|' \
-    configs/rockchip/base/common.config
-
-# 同步到已生成的 build 配置（立即生效）
-for f in output/*/*/.config; do
-    sed -i 's|^BR2_PRIMARY_SITE=.*|BR2_PRIMARY_SITE="https://mirror.nju.edu.cn/buildroot/"|' "$f"
-done
-```
-
-保留 `BR2_BACKUP_SITE` 指向官方站，镜像个别新版本没同步时会自动回落。
-
-> 详细说明见 [docs/workflow.md](docs/workflow.md) 3.8 节。
-
-#### 不用 Makefile 的手动方式
-
-```bash
-export PATH="$HOME/.local/opt/sdk-deps/bin:$PATH"
-cd "$SDK"
-./build.sh rockchip_rk3568_board_v10_defconfig   # 换配置时执行一次
-./build.sh kernel      # 或 uboot / rootfs / firmware
-```
-
-### 4. 烧录
-
-本板从 **eMMC** 启动。
-
-#### 分区偏移（512 字节扇区）
-
-| 分区 | 起始扇区 | 大小 |
-|---|---|---|
-| uboot | 16384 (0x4000) | 4 MB |
-| boot | **32768 (0x8000)** | 40 MB |
-| rootfs | **491520 (0x78000)** | 12 GB |
-| oem / userdata | — | — |
-
-#### 方式一：upgrade_tool（推荐）
+板子按住 MASKROM 键上电，然后：
 
 ```bash
 UT=~/rk3568-sdk/tools/linux/Linux_Upgrade_Tool/Linux_Upgrade_Tool/upgrade_tool
 
-# 板子进 MaskROM（按住 MASKROM 键上电）
 $UT ld          # 必须显示 Mode=Maskrom
 $UT db ~/rk3568-sdk/u-boot/rk356x_spl_loader_v1.25.114.bin
 $UT ssd         # 输入 2 = eMMC
@@ -239,42 +143,10 @@ $UT wl 32768 ~/rk3568-sdk/output/firmware/boot.img    # 只更新内核
 $UT rd
 ```
 
-整包烧写（含 rootfs，4.5 GB）：
+整包烧写：`$UT uf ~/rk3568-sdk/output/firmware/update.img`
 
-```bash
-$UT uf ~/rk3568-sdk/output/firmware/update.img
-```
-
-> **常见错误**：`Download boot failed / check ddr` 说明 MaskROM 放太久，
-> **彻底断电**（拔电源等 10 秒）再按住 MASKROM 上电即可。
-> 另外先 `sudo systemctl stop ModemManager`，它会抢 USB 设备。
-
-#### 方式二：从系统里进 Loader 模式（最省事）
-
-```bash
-# 板子上
-sudo reboot loader
-
-# 电脑上（Loader 模式不需要 db）
-$UT ld
-$UT wl 32768 ~/rk3568-sdk/output/firmware/boot.img
-$UT rd
-```
-
-#### 方式三：Windows + RKDevTool
-
-1. 装 Rockchip USB 驱动（DriverAssistant）
-2. 打开 `RKDevTool.exe`，应显示"发现一个 MASKROM 设备"
-3. "升级固件" → 选 `update.img` → "升级"
-
-#### 烧完验证
-
-```bash
-cat /proc/asound/cards                       # RK809 / SPDIF / HDMI
-cat /sys/class/net/*/speed                   # 1000
-dmesg | grep -i 'GPU identified'             # Mali-G52
-cat /sys/class/drm/card0-HDMI-A-1/status     # connected
-```
+> 常见错误（`check ddr`、`connected(0)`、ModemManager 抢 USB、Loader 模式）
+> 见 [docs/workflow.md](docs/workflow.md) 第四章。
 
 ## 两套系统
 
