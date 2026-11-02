@@ -329,6 +329,19 @@ grep -rl board . | xargs sed -i 's/board/taishan/g'
 
 ## 许可与溯源
 
+### 硬件设计的来源
+
+本板的**原理图 / PCB 衍生自开源硬件工程**（GPL v3），不是从零设计。
+原作者、项目名与原始链接：`<待补充>`
+
+按 GPL v3 的要求，OSHWHub 上的硬件工程同样以 **GPL v3** 发布，
+修改内容与调试记录见 [docs/hardware.md](docs/hardware.md)。
+
+> 本仓库的**软件部分**（设备树、脚本、文档）是独立编写的功能描述，
+> 不是原理图文件的复制，因此按 MIT 发布；两者互不影响。
+
+### 软件许可
+
 - 板级 DTS 衍生自 Rockchip 的 `rk3568-evb1-ddr4-v10.dtsi` / `rk3568-evb.dtsi`，
   沿用其 `GPL-2.0+ OR MIT` 双许可声明（文件头 SPDX 已保留）。
 - 本仓库的文档与脚本建议使用 MIT 或 CC-BY-4.0。

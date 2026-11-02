@@ -28,3 +28,16 @@ Note on the device tree:
   (arch/arm64/boot/dts/rockchip/rk3568-evb*.dtsi), which are dual-licensed
   "GPL-2.0+ OR MIT". The SPDX identifier in the file header is preserved.
   Choosing MIT for this repository is compatible with that dual license.
+
+Note on the hardware design:
+
+  The schematic and PCB of this board are derived from a third-party
+  open-source hardware project licensed under GNU GPL v3. The hardware
+  design files are therefore published under GPL v3 on OSHWHub, and the
+  original author's copyright notice is retained there.
+
+  This repository contains only software (device tree, scripts, docs)
+  written independently to describe the hardware; it is not a copy of the
+  schematic files and is released under the MIT license above.
+
+  Original project / author: <to be filled>
