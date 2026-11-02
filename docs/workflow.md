@@ -243,8 +243,8 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 | 模式 | 怎么进 | `lsusb` | 能用的命令 |
 |---|---|---|---|
-| **MaskROM** | 按住 MASKROM 键上电 | `2207:350a` | 全部 |
-| **Loader** | 系统里 `reboot loader` | `2207:350a` | 除 `db` 外都能用 |
+| **MaskROM** | **短接 TP1 + TP2** 后上电 | `2207:350a` | 全部 |
+| **Loader** | **短接 TP3 + TP4** 后上电，或系统里 `reboot loader` | `2207:350a` | 除 `db` 外都能用 |
 | **正常 Linux** | 默认启动 | `2207:0006` | **不能烧录** |
 
 `$UT ld` 必须显示 `Mode=Maskrom`（或 Loader）才能继续。
@@ -315,7 +315,7 @@ $UT wl 491520 ~/rk3568-sdk/output/firmware/rootfs.img
 | 报错 | 原因 | 解决 |
 |---|---|---|
 | `ld: no input files` | `$UT` 没设，跑的是系统 `ld` | 重新 export `UT` |
-| `No found any rockusb device` | 板子不在 MaskROM/Loader | 按 MASKROM 键上电，或 `reboot loader` |
+| `No found any rockusb device` | 板子不在 MaskROM/Loader | 短接 TP1+TP2 上电，或 `reboot loader` |
 | `Download Firmware Fail` 卡在 2% | **USB 经过了 hub** | 直插主板后置口 |
 | `parameter is invalid,please check!` | 没先下分区表 | `$UT di -p parameter.txt` |
 | `The Device did not support this operation!` | Loader 模式下执行了 `db` | 跳过 `db` |

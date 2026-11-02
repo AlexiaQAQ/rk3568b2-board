@@ -145,6 +145,8 @@ distclean: clean
 
 # Rockchip 官方流程：MaskROM → db 下 boot → ssd 选存储 → uf 烧固件
 # 本板从 eMMC 启动，ssd 时选 2（EMMC）；SD 卡是 3
+#
+# 进 MaskROM：本板没有按键，**短接 TP1 和 TP2 后上电**（短接 TP3+TP4 是 Loader）
 # 不需要 sudo：/etc/udev/rules.d/99-rockchip-usb.rules 已把 VID 2207 设为 0666
 #
 # 注意：ssd 只能交互输入。用 echo 2 | upgrade_tool ssd 会因为拿不到 tty 直接
@@ -155,7 +157,8 @@ flash:
 	@echo "0) 当前连接的 rockusb 设备："
 	@"$(UT)" ld
 	@echo ""
-	@echo "   列表为 0 时：板子断电 → USB OTG 接电脑 → 上电（无启动介质会自动进 MaskROM）"
+	@echo "   列表为 0 时：板子断电 → 短接 TP1 和 TP2 → 接 USB → 上电 → 松开"
+	@echo "   （短接 TP3 和 TP4 进的是 Loader 模式，那种情况跳过 db 直接 ssd/wl）"
 	@echo ""
 	@echo "1) 下载 boot（MaskROM 下必须先做这步才能通讯）"
 	@"$(UT)" db "$(LOADER)"
@@ -163,7 +166,7 @@ flash:
 	@echo "2) 选择存储 —— 输入 2（EMMC）；SD 备选输入 3"
 	@"$(UT)" ssd
 	@echo ""
-	@echo "3) 烧录固件（会擦掉 SD 上所有分区，rootfs 一并换成干净的 ext4）"
+	@echo "3) 烧录固件（会重写所有分区，rootfs 一并换掉）"
 	@"$(UT)" uf "$(IMAGE)"
 
 # uf 会先写 IDB（idblock），这颗卡/这套 SD 写通路在 IDB 阶段就失败：

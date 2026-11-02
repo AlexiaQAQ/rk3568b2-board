@@ -131,7 +131,10 @@ make firmware      # 组装 update.img（约 2 分钟）
 
 ### 5. 烧录
 
-板子按住 MASKROM 键上电，然后：
+**如何进 MaskROM**：本板没有 MASKROM 按键，用**短接测试点**的方式——
+**短接 TP1 和 TP2 后上电**即进入 MaskROM（短接 TP3 和 TP4 是进 Loader 模式）。
+
+然后：
 
 ```bash
 UT=~/rk3568-sdk/tools/linux/Linux_Upgrade_Tool/Linux_Upgrade_Tool/upgrade_tool
