@@ -32,12 +32,13 @@ Note on the device tree:
 Note on the hardware design:
 
   The schematic and PCB of this board are derived from a third-party
-  open-source hardware project licensed under GNU GPL v3. The hardware
-  design files are therefore published under GPL v3 on OSHWHub, and the
-  original author's copyright notice is retained there.
+  open-source hardware project licensed under GNU GPL v3. The modified
+  hardware design is published under GPL v3 on OSHWHub, where the original
+  author's copyright notice and attribution are retained:
 
-  This repository contains only software (device tree, scripts, docs)
-  written independently to describe the hardware; it is not a copy of the
-  schematic files and is released under the MIT license above.
+      https://oshwhub.com/alexia0/project_vqrzieuk
 
-  Original project / author: <to be filled>
+  The original author published hardware only, without any firmware or
+  software. Everything in this repository (device tree, scripts, docs) is
+  written independently and is released under the MIT license above. The
+  two licenses apply to different things and do not conflict.
