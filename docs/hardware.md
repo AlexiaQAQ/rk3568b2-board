@@ -1,7 +1,8 @@
 # 硬件说明
 
 > 原理图 / PCB / BOM / Gerber 发布在**立创开源硬件平台（OSHWHub）**，
-> 仓库里不重复维护二进制文件。开源工程链接：`<待补充>`
+> 仓库里不重复维护二进制文件。
+> **开源工程链接**：<https://oshwhub.com/alexia0/project_vqrzieuk>
 > （设计工具：嘉立创 EDA 专业版；原理图 V1.0，A3 14 页）
 >
 > `hardware/` 目录已加入 `.gitignore`，本地可放 PDF 副本，不会误提交。

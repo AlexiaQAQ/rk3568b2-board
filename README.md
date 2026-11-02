@@ -7,6 +7,8 @@
 > USB、3.5mm 耳机 + MIC、NTP 对时全部验证通过。
 > 唯一未解决的是 WiFi 接收灵敏度（详见[已知问题](#已知问题--todo)）。
 
+> **开源硬件工程（原理图 / PCB / BOM）**：<https://oshwhub.com/alexia0/project_vqrzieuk>
+>
 > 首板调试整理了 **9 个硬件检查点**（元件是否贴齐、连接可靠性、供电余量），
 > 都写了现象和定位方法，见 [docs/hardware.md](docs/hardware.md) 第 8 节。
 > **打算复刻这块板的话，建议上电前先对着这份清单核对一遍。**
@@ -331,7 +333,8 @@ grep -rl board . | xargs sed -i 's/board/taishan/g'
   沿用其 `GPL-2.0+ OR MIT` 双许可声明（文件头 SPDX 已保留）。
 - 本仓库的文档与脚本建议使用 MIT 或 CC-BY-4.0。
 - **请勿转载 SDK 本体**（约 25GB），只分发本仓库的板级差异。
-- 原理图 / PCB / BOM 发布在**立创开源硬件平台（OSHWHub）**（链接待补充），索引见 [docs/hardware.md](docs/hardware.md) 第 11 节。
+- 原理图 / PCB / BOM 发布在**立创开源硬件平台（OSHWHub）**：<https://oshwhub.com/alexia0/project_vqrzieuk>
+  原理图页面索引见 [docs/hardware.md](docs/hardware.md) 第 11 节。
 
 ## English summary
 
