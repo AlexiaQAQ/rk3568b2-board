@@ -140,8 +140,8 @@ clean:
 	@echo "已清理 buildroot 输出（下次 make buildroot 将全量重编）"
 
 distclean: clean
-	@rm -rf "$(SDK)/output" "$(SDK)/rockdev"
-	@echo "已清理 SDK output/ 与 rockdev/（会丢失 lunch 选择）"
+	@rm -rf "$(SDK)/output"
+	@echo "已清理 SDK output/（会丢失当前选的 defconfig，需要重新 ./build.sh <defconfig>）"
 
 # Rockchip 官方流程：MaskROM → db 下 boot → ssd 选存储 → uf 烧固件
 # 本板从 eMMC 启动，ssd 时选 2（EMMC）；SD 卡是 3

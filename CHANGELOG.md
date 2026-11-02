@@ -3,6 +3,25 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 的简化形式，
 版本号对应板级硬件版本 + 修订。
 
+## [0.9.6] - 2026-11-02
+
+**文档收尾与发布准备**
+
+- 新增 `RELEASE.md`：GitHub Release 用的发布说明（固件信息、已验证功能表、
+  烧录方法、已知问题）
+- 加入板子实物照片 `docs/images/board.jpg`，README 和 Release 都引用
+- 补充 OSHWHub 开源硬件工程链接
+- 许可证说明简化：硬件部分（原理图/PCB）在 OSHWHub 以 GPL v3 发布，
+  本仓库软件为独立原创、按 MIT 发布
+- `release/` 加入 `.gitignore`（固件 968 MB 不进版本库，作为本地发布暂存）
+- `make distclean` 的提示语更新（去掉过时的 rockdev / lunch 说法）
+
+### 固件
+
+```
+update.img.zst   968 MB   MD5 7a417284e5c70ade70a96da08f7c5d85
+```
+
 ## [0.9.5] - 2026-10-31
 
 **补充 u-boot 板级设备树**
