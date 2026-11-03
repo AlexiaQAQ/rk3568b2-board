@@ -863,7 +863,7 @@ sudo debugfs -w -R "sif /etc/network/interfaces.d/network-priority mode 0100644"
 | **WiFi 扫描** | ❌ | **0 个 AP（射频硬件问题，与系统无关）** |
 
 WiFi 在 Buildroot 和 Debian 下表现完全一致，进一步确认是硬件问题——
-详见 `porting-notes.md` 7.14 节。
+详见 `porting-notes.md` 7.13 节。
 
 ---
 
@@ -887,7 +887,7 @@ Makefile                              make kernel / firmware / flash / serial
 apply-to-sdk.sh                       一键装进 SDK
 docs/
   ├── workflow.md                     本文档：完整流程 + Debian
-  ├── porting-notes.md                15 个实战案例（最值得看）
+  ├── porting-notes.md                14 个实战案例（最值得看）
 
   ├── hardware.md                     器件与电源树
 

@@ -498,113 +498,7 @@ sync && reboot
 这对这块板子意义很大：串口是唯一的人机通道，烧录又要 MaskROM，
 用覆盖层可以几分钟试一个设备树改动。
 
-### 7.12 HDMI 点不亮：三个漏贴元件，现象一模一样
-
-这块板子的 HDMI 走了很长一段弯路，因为**三种完全不同的故障，表现都是「显示器无信号 / 黑屏」**。
-系统侧（VOP、DDC、HPD、驱动 probe）全程正常，日志里没有任何报错。
-
-#### 判别方法：先分清「无信号」还是「黑屏」
-
-| 显示器表现 | 含义 | 排查方向 |
-|---|---|---|
-| **「无信号 / No Signal」** | 显示器连 TMDS 时钟都收不到 | PHY 物理层、供电、TMDS 通路 |
-| **纯黑有背光** | TMDS 在跑，只是画面内容是黑的 | VOP 图层、帧缓冲 |
-
-这一步能砍掉一半的排查范围，非常关键。
-
-#### 坑 1：EDID 读不到（线材/接触）
-
-```sh
-cat /sys/class/drm/card0-HDMI-A-1/edid | wc -c   # 0
-i2cdetect -y -r 6                                # 只见假应答 0x30，没有 0x50
-i2cdump -y 6 0x30                                # 全 0x0a → 总线悬空
-```
-
-`i2cdump` 读回**所有字节都相同**（如全 `0x0a`），说明这是**总线悬空时控制器的固定读数**，
-不是真实器件。HDMI DDC 上 EDID 固定是 **0x50**，其它地址出现应答基本都是假象。
-
-另外量到 DDC 引脚 2.6V / 0.8V 这种「中间电平」，也是悬空的典型特征（无供电芯片的
-ESD 二极管会把线钳到 0.6~0.9V）。
-
-#### 坑 2：HDMI_TX_AVDD_0V9 缺 1µH 滤波电感 → 只有 0.7V
-
-RK3568 的 **HDMI 和 eDP 共用同一个 TX PHY**，其 0.9V 模拟电源在原理图上常叫
-`eDP_TX_AVDD_0V9` / `HDMI_TX_AVDD_0V9_1`（注意 `_1` 后缀说明一般还有 `_0` 等多组，
-每组各自经电感隔离，**要逐组量**）。
-
-现象：该网络只有 **0.7V**（应为 0.9V ±5%）。补上 1µH 电感后恢复 0.9V。
-
-0.7V 的成因：这一支靠电感/磁珠从主 0.9V 隔离出来，电感缺失时只剩漏电通路，
-被 PHY 的静态电流拉低。
-
-#### 坑 3：HDMI_TX_REXT 缺 1.62kΩ 基准电阻 → TMDS 完全无输出
-
-这是最终的真凶。`HDMI_TX_REXT` 是 TX PHY 的**基准电阻**，PHY 靠它设定 TMDS 驱动器的
-输出电流。缺了它：
-
-- 数字部分（VOP、DDC、HPD、寄存器）**一切正常**
-- TMDS 驱动器没有正确偏置，**物理层一个信号都不出**
-- 显示器只会说「无信号」
-
-补一颗 **1.62kΩ ±1%** 到地，立即点亮。
-
-#### 一个反直觉的点
-
-量到 TMDS 引脚（pin 10/12）有 3.3V，**不能证明 PHY 在工作**——那是显示器端的
-50Ω 端接上拉到 3.3V。即使板子这一侧完全断开，量出来也是 3.3V。
-
-要定性必须用示波器看有没有 148.5MHz 差分波形，或者直接查供电和 REXT。
-
-
-#### 桌面（Weston）启动
-
-```sh
-mkdir -p /tmp/weston && chmod 0700 /tmp/weston
-export XDG_RUNTIME_DIR=/tmp/weston
-weston --backend=drm &
-```
-
-跑起来后的关键日志：
-
-```
-EGL version: 1.5 Bifrost-"g24p0-00eac0"
-GL renderer: Mali-G52
-GL version: OpenGL ES 3.2
-Output 'HDMI-A-1' enabled with head(s) HDMI-A-1
-```
-
-**坑：不要加 `--tty=1`**。weston 14 用的是 *direct launcher*（日志里 `Trying direct launcher...`），
-它自己管理 DRM，会报 `fatal: unhandled option: --tty=1` 并退出。
-
-`XDG_RUNTIME_DIR` 必须存在且权限 **0700**，否则会有警告（不致命但建议设对）。
-
-开机自启用最小脚本即可（原版 `buildroot/package/weston/S49weston` 有 57 行）。
-**注意 `XDG_RUNTIME_DIR` 必须显式设置**——init 脚本不会加载 `/etc/profile`，
-所以 `/etc/profile.d/xdg.sh` 里的设置不生效，不设这个变量 weston 会直接启动失败：
-
-```sh
-printf '#!/bin/sh\nexport XDG_RUNTIME_DIR=/var/run\n/usr/bin/weston > /var/log/weston.log 2>&1 &\n' \
-    > /etc/init.d/S49weston
-chmod +x /etc/init.d/S49weston
-```
-
-（串口里用 `printf` 单行写文件比 heredoc 可靠，heredoc 容易被终端吞掉。）
-
-验证：重启后屏幕直接进桌面，`pgrep -a weston` 有进程，`/var/log/weston.log` 有 EGL/GL 初始化记录。
-
-SDK 里的 `buildroot/package/weston/S49weston` 会在重建 rootfs 时自动装回，
-所以这个脚本只是本次手动恢复用的临时手段。
-
-#### 修复后的验证
-
-```sh
-modetest -M rockchip -s 177@74:1920x1080     # 出彩条
-glmark2-es2-drm                              # glmark2 Score: 102 @ 1080p
-```
-
-注意：屏幕停在 Rockchip logo 是**正常**的——没有 compositor 接管，控制台又在串口上。
-
-### 7.13 USB 口没电 & 一使能就掉电复位
+### 7.12 USB 口没电 & 一使能就掉电复位
 
 #### 症状一：USB3.0 Host（A 口）完全没 5V
 
@@ -687,7 +581,7 @@ writel((val & 0xffff) | 0xffff0000, reg);
 2. 两个 USB 通路**各**预留 **47µF**（低 ESR 陶瓷或钽电容）
 3. 负载开关限流点确认 ≥ 1.5A；EN 脚加 RC 缓启动（如 100k + 1µF）
 
-### 7.14 WiFi：SDIO 通了，能发不能收
+### 7.13 WiFi：SDIO 通了，能发不能收
 
 #### 第一阶段：SDIO 完全枚举不到（已解决）
 
@@ -851,7 +745,7 @@ exit 0
 
 存成 `/etc/init.d/S37wifi`，`chmod 755`。比 S36 晚一位，S36 失败后它能兜底。
 
-### 7.15 音频（3.5mm 耳机）
+### 7.14 音频（3.5mm 耳机）
 
 本板音频走 **RK809 内置 codec**，3.5mm 耳机座的检测脚沿用 EVB 的 `GPIO3_A1`
 （低有效）。
@@ -915,7 +809,7 @@ pactl list short sinks                    # 找到 rk809 的 sink id
 pactl set-default-sink <id>
 ```
 
-### 7.16 以太网：只到 10/100Mbps 且频繁掉线（已解决）
+### 7.15 以太网：只到 10/100Mbps 且频繁掉线（已解决）
 
 调试初期链路频繁起落，多次只协商到 **10Mbps / 100Mbps**，从未上过千兆：
 
