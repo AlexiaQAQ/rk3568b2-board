@@ -860,10 +860,10 @@ sudo debugfs -w -R "sif /etc/network/interfaces.d/network-priority mode 0100644"
 | 有线网络 | ✅ | NetworkManager 管理 |
 | USB 供电 | ✅ | `gpio-5 out hi` |
 | WiFi 驱动 | ✅ | 换带内版后正常加载 |
-| **WiFi 扫描** | ❌ | **0 个 AP（射频硬件问题，与系统无关）** |
+| **WiFi 扫描** | ❌ | **0 个 AP**（能发不能收，接收灵敏度极低）|
 
-WiFi 在 Buildroot 和 Debian 下表现完全一致，进一步确认是硬件问题——
-详见 `porting-notes.md` 7.13 节。
+WiFi 在 Buildroot 和 Debian 下表现完全一致，与系统无关——
+详见 `porting-notes.md` 7.12 节。
 
 ---
 

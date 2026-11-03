@@ -255,51 +255,7 @@ u-boot 能读 40MB 内核而内核读不了，是因为两者对总线位宽与�
 残余现象：改成 1-bit 后仍有少量 `dw_mci_request_end` WARN + 偶发重新初始化，
 但不产生数据错误，暂不阻塞使用（疑似卡检测或 VCC3V3_SD 供电瞬态）。
 
-### 7.5 以太网 PHY 未应答（硬件未焊完整）
-
-GMAC1 控制器正常起来，但 MDIO 上找不到 PHY：
-
-```
-mdio_bus stmmac-1: MDIO device at address 0 is missing
-rk_gmac-dwmac fe010000.ethernet eth0: Cannot attach to PHY (error: -19)
-```
-
-**原因：RTL8211F 的 25MHz 晶振尚未焊接**，PHY 无时钟故不应答。
-与设备树配置无关，焊上晶振后 PHY 立刻被识别（PHYAD = 0）：
-
-```
-eth0: PHY [stmmac-1:00] driver [RTL8211F Gigabit Ethernet] (irq=POLL)
-Read rgmii delayline from vendor: tx = 0x42, rx = 0x25
-```
-
-晶振焊上后 PHY 识别正常，但**链路仍然起不来**（`carrier: 0`，`operstate: down`，网口灯不亮）。
-补焊 RJ45 座之后 `carrier` 变成 1，链路建立。
-
-> 注意：网口 LED 不亮**不能**作为「没链路」的判据——很多集成变压器的 RJ45，
-> LED 由 PHY 的 LED0/LED1 引脚驱动，那两根线没接时灯永远不亮，但链路可以是好的。
-> 判断链路要看 `cat /sys/class/net/eth0/carrier`。
-
-#### 直连电脑的验证方法（无 DHCP）
-
-网线直连 PC 时没有 DHCP 服务器，`udhcpc` 会一直 `broadcasting discover`，这是正常的。
-两端手配静态 IP 即可：
-
-```sh
-# 板子
-ip addr add 192.168.1.100/24 dev eth0
-ip link set eth0 up
-
-# 电脑（Linux）
-sudo ip addr add 192.168.1.1/24 dev enp44s0
-
-# 验证
-ping -c3 192.168.1.100     # 电脑 → 板子
-```
-
-实测 `0% packet loss, rtt avg 1.3ms`。通了之后直接用 scp 传文件，
-调试完全不需要再经过串口。
-
-### 7.6 一次“看起来更糟”的启动失败：其实是 rootfs 日志损坏
+### 7.5 一次“看起来更糟”的启动失败：其实是 rootfs 日志损坏
 
 4-bit 复测失败后重新烧过一次 1-bit 镜像，串口里出现的是这样一串：
 
@@ -335,7 +291,7 @@ Kernel panic - not syncing: VFS: Unable to mount root fs
 经验：调试 SD/存储问题时，**先分清是链路错误还是文件系统后果**。
 出现 `JBD2 ... recovery failed` 这类日志时不要再怀疑引脚，直接查文件系统/重烧。
 
-### 7.7 eMMC 贴片后：SD 烧录失败的真正原因是卡座
+### 7.6 eMMC 贴片后：SD 烧录失败的真正原因是卡座
 
 2026-10-25 贴上 eMMC（SDINBDA4-64G）后，同样的 `upgrade_tool` 命令一次成功：
 
@@ -361,7 +317,7 @@ eMMC 一次通过就否掉了这个猜测——**问题在 SD 卡座那条链路
 
 结论：调试存储问题时，先用另一种介质交叉验证，比死磕一种通路快得多。
 
-### 7.8 IO 电源域脚本的 vccio2 是误报
+### 7.7 IO 电源域脚本的 vccio2 是误报
 
 启动时 `/usr/bin/list-iodomain.sh` 会刷一屏红字，其中 `vccio2_vsel: 3.3V` 看着像配错了。
 实际是驱动空实现导致寄存器保持复位默认值：
@@ -382,7 +338,7 @@ RK3568 的 VCCIO2 电压由 `FLASH_VOL_SEL` 引脚硬件决定：
 本板 VCCIO2 = VCC_1V8(1.8V)，FLASH_VOL_SEL = VCC3V3_PMU(高)，一致，无需改动。
 **这一行在 RK3568 上没有参考价值，不要被它带偏。**
 
-### 7.9 NPU 打开后的两条"错误"是噪声
+### 7.8 NPU 打开后的两条"错误"是噪声
 
 ```
 RKNPU fde40000.npu: can't request region for resource [mem 0xfde40000-0xfde4ffff]
@@ -407,7 +363,7 @@ NPU load: 0%     freq: 900000000
 /dev/dri/renderD128、renderD129
 ```
 
-### 7.10 换 SoC 之后：GPU 复活，内存变成间歇性 2GB
+### 7.9 换 SoC 之后：GPU 复活，内存变成间歇性 2GB
 
 前面 7.9 之后又走了一段弯路，根因是 **SoC 本身有问题**。
 
@@ -455,7 +411,7 @@ eth0: PHY [stmmac-1:00] driver [RTL8211F Gigabit Ethernet] (irq=POLL)
 Read rgmii delayline from vendor: tx = 0x42, rx = 0x25
 ```
 
-### 7.11 不烧录调试设备树：/boot 下的 dtbo 覆盖层
+### 7.10 不烧录调试设备树：/boot 下的 dtbo 覆盖层
 
 Rockchip 的 u-boot 支持从 rootfs 动态加载设备树覆盖层，日志里能看到：
 
@@ -498,7 +454,7 @@ sync && reboot
 这对这块板子意义很大：串口是唯一的人机通道，烧录又要 MaskROM，
 用覆盖层可以几分钟试一个设备树改动。
 
-### 7.12 USB 口没电 & 一使能就掉电复位
+### 7.11 USB 口没电 & 一使能就掉电复位
 
 #### 症状一：USB3.0 Host（A 口）完全没 5V
 
@@ -581,7 +537,7 @@ writel((val & 0xffff) | 0xffff0000, reg);
 2. 两个 USB 通路**各**预留 **47µF**（低 ESR 陶瓷或钽电容）
 3. 负载开关限流点确认 ≥ 1.5A；EN 脚加 RC 缓启动（如 100k + 1µF）
 
-### 7.13 WiFi：SDIO 通了，能发不能收
+### 7.12 WiFi：SDIO 通了，能发不能收
 
 #### 第一阶段：SDIO 完全枚举不到（已解决）
 
@@ -745,7 +701,7 @@ exit 0
 
 存成 `/etc/init.d/S37wifi`，`chmod 755`。比 S36 晚一位，S36 失败后它能兜底。
 
-### 7.14 音频（3.5mm 耳机）
+### 7.13 音频（3.5mm 耳机）
 
 本板音频走 **RK809 内置 codec**，3.5mm 耳机座的检测脚沿用 EVB 的 `GPIO3_A1`
 （低有效）。
@@ -809,7 +765,7 @@ pactl list short sinks                    # 找到 rk809 的 sink id
 pactl set-default-sink <id>
 ```
 
-### 7.15 以太网：只到 10/100Mbps 且频繁掉线（已解决）
+### 7.14 以太网：只到 10/100Mbps 且频繁掉线（已解决）
 
 调试初期链路频繁起落，多次只协商到 **10Mbps / 100Mbps**，从未上过千兆：
 
