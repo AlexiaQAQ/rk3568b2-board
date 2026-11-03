@@ -706,18 +706,6 @@ exit 0
 本板音频走 **RK809 内置 codec**，3.5mm 耳机座的检测脚沿用 EVB 的 `GPIO3_A1`
 （低有效）。
 
-**注意**：设备树里 `&rk809_sound` 必须是 `okay`。如果被关成 `disabled`，
-`/proc/asound/cards` 里就只剩 SPDIF 和 HDMI，很容易误判成「板子没有 codec」——
-实际上 RK809 的 codec 一直都在，只是没被启用。
-
-正确配置：
-
-```dts
-&rk809_sound {
-	status = "okay";
-};
-```
-
 验证：
 
 ```sh
