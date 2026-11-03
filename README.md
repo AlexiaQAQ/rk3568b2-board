@@ -9,7 +9,7 @@
 
 > **开源硬件工程（原理图 / PCB / BOM）**：<https://oshwhub.com/alexia0/project_vqrzieuk>
 >
-> 首板调试整理了 **9 个硬件检查点**（元件是否贴齐、连接可靠性、供电余量），
+> 首板调试整理了 **5 个硬件检查点**（连接可靠性、供电余量），
 > 都写了现象和定位方法，见 [docs/hardware.md](docs/hardware.md) 第 8 节。
 > **打算复刻这块板的话，建议上电前先对着这份清单核对一遍。**
 
@@ -30,7 +30,7 @@
 | `Makefile` | `make kernel` / `firmware` / `flash` / `serial` 等 |
 | `docs/workflow.md` | **完整流程**：环境 → 编译 → 烧录 → 验证 → 调试 → 排查方法论 |
 | `docs/porting-notes.md` | **15 个实战案例**：每个坑的现象、排查、根因 |
-| `docs/hardware.md` | **硬件手册**：规格、电源树、IO 电压域、引脚、**上电检查表**、**9 个硬件检查点**、原理图索引 |
+| `docs/hardware.md` | **硬件手册**：规格、电源树、IO 电压域、引脚、**上电检查表**、**5 个硬件检查点**、原理图索引 |
 
 **为什么基于 EVB 做减法**：这块板的电源树（RK809-5 + TCS4525）、AP6212、
 HDMI、USB 拓扑和 Rockchip RK3568 EVB1 高度一致，直接继承 1200 多行已验证配置，
@@ -231,8 +231,8 @@ to nearby phones), but the receiver cannot hear normal access points.
 Antenna, PCB trace, supply rails, clock, and regulatory domain have all been
 ruled out — diagnosing further needs a spectrum analyzer.
 
-Nine hardware defects were found during bring-up (missing parts, cold solder
-joints, power margin); eight are fixed. Every one is documented with its
+Five hardware defects were found during bring-up (cold solder joints and
+power margin); four are fixed. Every one is documented with its
 symptom, root cause, and how it was located in
 [docs/hardware.md](docs/hardware.md) and
 [docs/porting-notes.md](docs/porting-notes.md).
